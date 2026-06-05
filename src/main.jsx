@@ -491,6 +491,63 @@ function RegisterPage({ onLogin, onDone }) {
 }
 
 function NotesPage({ session, onLogin }) {
+  const [title, setTitle] = React.useState('');
+  const [content, setContent] = React.useState('');
+  const [notes, setNotes] = React.useState([]);
+  const [message, setMessage] = React.useState('');
+  const [isLoading, setIsLoading] = React.useState(false);
+  const [isSaving, setIsSaving] = React.useState(false);
+
+  const loadNotes = React.useCallback(async () => {
+    if (!session || !supabase) return;
+
+    setIsLoading(true);
+    const { data, error } = await supabase
+      .from('notes')
+      .select('id, title, content, image_url, created_at')
+      .order('created_at', { ascending: false });
+    setIsLoading(false);
+
+    if (error) {
+      setMessage(`读取笔记失败：${error.message}`);
+      return;
+    }
+
+    setNotes(data ?? []);
+  }, [session]);
+
+  React.useEffect(() => {
+    loadNotes();
+  }, [loadNotes]);
+
+  async function handleCreateNote(event) {
+    event.preventDefault();
+    setMessage('');
+
+    if (!session || !supabase) {
+      setMessage('请先登录。');
+      return;
+    }
+
+    setIsSaving(true);
+    const { error } = await supabase.from('notes').insert({
+      user_id: session.user.id,
+      title,
+      content,
+    });
+    setIsSaving(false);
+
+    if (error) {
+      setMessage(`保存笔记失败：${error.message}`);
+      return;
+    }
+
+    setTitle('');
+    setContent('');
+    setMessage('笔记已保存。');
+    await loadNotes();
+  }
+
   if (!session) {
     return (
       <section className="auth-page">
@@ -516,14 +573,66 @@ function NotesPage({ session, onLogin }) {
       </div>
 
       <div className="notes-layout">
-        <NotePreview />
-        <article className="feature-card">
-          <ImagePlus size={22} />
-          <h3>登录已经跑通</h3>
-          <p>
-            下一步会创建 Supabase 数据表，让这里的标题、正文和图片地址真正保存起来。
-          </p>
-        </article>
+        <form className="note-editor" onSubmit={handleCreateNote}>
+          <div className="image-placeholder compact-upload">
+            <ImagePlus size={34} />
+            <strong>图片上传下一步再接</strong>
+            <span>现在先保存标题和内容</span>
+          </div>
+
+          <label htmlFor="note-title">笔记标题</label>
+          <input
+            id="note-title"
+            type="text"
+            placeholder="比如：今天的照片记录"
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+            required
+          />
+
+          <label htmlFor="note-content">笔记内容</label>
+          <textarea
+            id="note-content"
+            placeholder="写一点内容..."
+            value={content}
+            onChange={(event) => setContent(event.target.value)}
+            rows={5}
+          />
+
+          <button className="primary-button large" type="submit" disabled={isSaving}>
+            <Database size={18} />
+            {isSaving ? '保存中...' : '保存笔记'}
+          </button>
+
+          {message && <p className="form-message">{message}</p>}
+        </form>
+
+        <section className="notes-list" aria-label="我的笔记列表">
+          <div className="section-heading small-heading">
+            <p className="eyebrow">已保存</p>
+            <h2>我的笔记</h2>
+          </div>
+
+          {isLoading && <p className="form-message">正在读取笔记...</p>}
+
+          {!isLoading && notes.length === 0 && (
+            <article className="empty-state">
+              <Database size={22} />
+              <h3>还没有笔记</h3>
+              <p>先在左边写一条，保存后会显示在这里。</p>
+            </article>
+          )}
+
+          <div className="saved-notes">
+            {notes.map((note) => (
+              <article className="saved-note" key={note.id}>
+                <h3>{note.title}</h3>
+                {note.content && <p>{note.content}</p>}
+                <span>{new Date(note.created_at).toLocaleString('zh-CN')}</span>
+              </article>
+            ))}
+          </div>
+        </section>
       </div>
     </section>
   );

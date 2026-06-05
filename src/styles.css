@@ -573,14 +573,26 @@ button {
   font-weight: 800;
 }
 
-.auth-form input {
+.auth-form input,
+.note-editor input,
+.note-editor textarea {
   width: 100%;
-  min-height: 44px;
   border: 1px solid #d7e6dd;
   border-radius: 8px;
-  padding: 0 12px;
   color: #172033;
   font: inherit;
+}
+
+.auth-form input,
+.note-editor input {
+  min-height: 44px;
+  padding: 0 12px;
+}
+
+.note-editor textarea {
+  min-height: 130px;
+  padding: 12px;
+  resize: vertical;
 }
 
 .auth-form button {
@@ -616,6 +628,84 @@ button {
   grid-template-columns: minmax(320px, 0.9fr) minmax(0, 1fr);
   gap: 18px;
   align-items: start;
+}
+
+.note-editor,
+.notes-list,
+.empty-state,
+.saved-note {
+  border: 1px solid #d7e6dd;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.07);
+}
+
+.note-editor {
+  display: grid;
+  gap: 10px;
+  padding: 18px;
+}
+
+.note-editor label {
+  color: #344054;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.compact-upload {
+  min-height: 164px;
+  margin-bottom: 4px;
+}
+
+.notes-list {
+  padding: 22px;
+}
+
+.small-heading h2 {
+  margin-bottom: 14px;
+  font-size: 24px;
+}
+
+.empty-state {
+  display: grid;
+  gap: 8px;
+  padding: 22px;
+  color: #667085;
+}
+
+.empty-state svg {
+  color: #2f8f67;
+}
+
+.empty-state h3,
+.saved-note h3 {
+  margin: 0;
+  color: #101828;
+}
+
+.empty-state p {
+  margin: 0;
+  line-height: 1.7;
+}
+
+.saved-notes {
+  display: grid;
+  gap: 12px;
+}
+
+.saved-note {
+  padding: 18px;
+}
+
+.saved-note p {
+  margin: 10px 0 12px;
+  color: #475467;
+  line-height: 1.7;
+}
+
+.saved-note span {
+  color: #667085;
+  font-size: 13px;
 }
 
 @media (max-width: 880px) {
