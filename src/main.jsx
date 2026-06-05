@@ -96,6 +96,9 @@ const journalColors = [
   },
 ];
 
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+
 function App() {
   const [currentPage, setCurrentPage] = React.useState(pages.home);
   const [session, setSession] = React.useState(null);
@@ -493,6 +496,8 @@ function RegisterPage({ onLogin, onDone }) {
 function NotesPage({ session, onLogin }) {
   const [title, setTitle] = React.useState('');
   const [content, setContent] = React.useState('');
+  const [imageFile, setImageFile] = React.useState(null);
+  const [imagePreview, setImagePreview] = React.useState('');
   const [notes, setNotes] = React.useState([]);
   const [message, setMessage] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(false);
@@ -517,8 +522,63 @@ function NotesPage({ session, onLogin }) {
   }, [session]);
 
   React.useEffect(() => {
+    if (!imageFile) {
+      setImagePreview('');
+      return undefined;
+    }
+
+    const previewUrl = URL.createObjectURL(imageFile);
+    setImagePreview(previewUrl);
+
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [imageFile]);
+
+  React.useEffect(() => {
     loadNotes();
   }, [loadNotes]);
+
+  function handleImageChange(event) {
+    const file = event.target.files?.[0];
+    setMessage('');
+
+    if (!file) {
+      setImageFile(null);
+      return;
+    }
+
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+      setImageFile(null);
+      setMessage('请选择 JPG、PNG、WEBP 或 GIF 图片。');
+      return;
+    }
+
+    if (file.size > MAX_IMAGE_SIZE) {
+      setImageFile(null);
+      setMessage('图片不能超过 5 MB。');
+      return;
+    }
+
+    setImageFile(file);
+  }
+
+  async function uploadImage() {
+    if (!imageFile || !session || !supabase) return '';
+
+    const extension = imageFile.name.split('.').pop()?.toLowerCase() || 'jpg';
+    const filePath = `${session.user.id}/${crypto.randomUUID()}.${extension}`;
+    const { error } = await supabase.storage.from('note-images').upload(filePath, imageFile, {
+      cacheControl: '3600',
+      contentType: imageFile.type,
+      upsert: false,
+    });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    const { data } = supabase.storage.from('note-images').getPublicUrl(filePath);
+    return data.publicUrl;
+  }
 
   async function handleCreateNote(event) {
     event.preventDefault();
@@ -530,20 +590,32 @@ function NotesPage({ session, onLogin }) {
     }
 
     setIsSaving(true);
-    const { error } = await supabase.from('notes').insert({
+    let imageUrl = '';
+
+    try {
+      imageUrl = await uploadImage();
+    } catch (error) {
+      setIsSaving(false);
+      setMessage(`上传图片失败：${error.message}`);
+      return;
+    }
+
+    const { error: insertError } = await supabase.from('notes').insert({
       user_id: session.user.id,
       title,
       content,
+      image_url: imageUrl || null,
     });
     setIsSaving(false);
 
-    if (error) {
-      setMessage(`保存笔记失败：${error.message}`);
+    if (insertError) {
+      setMessage(`保存笔记失败：${insertError.message}`);
       return;
     }
 
     setTitle('');
     setContent('');
+    setImageFile(null);
     setMessage('笔记已保存。');
     await loadNotes();
   }
@@ -574,11 +646,24 @@ function NotesPage({ session, onLogin }) {
 
       <div className="notes-layout">
         <form className="note-editor" onSubmit={handleCreateNote}>
-          <div className="image-placeholder compact-upload">
-            <ImagePlus size={34} />
-            <strong>图片上传下一步再接</strong>
-            <span>现在先保存标题和内容</span>
-          </div>
+          <label className="upload-control" htmlFor="note-image">
+            {imagePreview ? (
+              <img src={imagePreview} alt="待上传预览" />
+            ) : (
+              <span className="upload-empty">
+                <ImagePlus size={34} />
+                <strong>选择一张图片</strong>
+                <small>JPG、PNG、WEBP、GIF，最大 5 MB</small>
+              </span>
+            )}
+          </label>
+          <input
+            id="note-image"
+            className="file-input"
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            onChange={handleImageChange}
+          />
 
           <label htmlFor="note-title">笔记标题</label>
           <input
@@ -626,6 +711,7 @@ function NotesPage({ session, onLogin }) {
           <div className="saved-notes">
             {notes.map((note) => (
               <article className="saved-note" key={note.id}>
+                {note.image_url && <img src={note.image_url} alt={note.title} />}
                 <h3>{note.title}</h3>
                 {note.content && <p>{note.content}</p>}
                 <span>{new Date(note.created_at).toLocaleString('zh-CN')}</span>
