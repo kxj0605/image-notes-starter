@@ -8,9 +8,11 @@ import {
   ImagePlus,
   Lock,
   LogIn,
+  LogOut,
   Rocket,
   UserPlus,
 } from 'lucide-react';
+import { isSupabaseConfigured, supabase } from './supabaseClient';
 import './styles.css';
 
 const pages = {
@@ -24,17 +26,17 @@ const steps = [
   {
     icon: LogIn,
     title: '登录账号',
-    text: '以后这里会接 Supabase 登录，让每个人进入自己的空间。',
+    text: '现在这里已经接入 Supabase，可以开始测试注册和登录。',
   },
   {
     icon: Database,
     title: '保存笔记',
-    text: '标题、正文、图片地址会保存到 Supabase 数据库。',
+    text: '下一步会创建数据库表，把标题、正文、图片地址保存进去。',
   },
   {
     icon: ImagePlus,
     title: '上传图片',
-    text: '图片会放进 Supabase Storage，然后在笔记里显示。',
+    text: '后面图片会放进 Supabase Storage，再显示在笔记里。',
   },
 ];
 
@@ -96,6 +98,32 @@ const journalColors = [
 
 function App() {
   const [currentPage, setCurrentPage] = React.useState(pages.home);
+  const [session, setSession] = React.useState(null);
+  const [authReady, setAuthReady] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!supabase) {
+      setAuthReady(true);
+      return undefined;
+    }
+
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+      setAuthReady(true);
+    });
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession);
+    });
+
+    return () => listener.subscription.unsubscribe();
+  }, []);
+
+  async function handleSignOut() {
+    if (!supabase) return;
+    await supabase.auth.signOut();
+    setCurrentPage(pages.home);
+  }
 
   return (
     <main className="app-shell">
@@ -108,29 +136,56 @@ function App() {
         </button>
 
         <div className="nav-actions">
-          <button className="icon-button" aria-label="GitHub 代码">
+          <a
+            className="icon-button"
+            href="https://github.com/kxj0605/image-notes-starter"
+            aria-label="GitHub 代码"
+            target="_blank"
+            rel="noreferrer"
+          >
             <Github size={18} />
-          </button>
-          <button className="text-button" onClick={() => setCurrentPage(pages.login)}>
-            <LogIn size={17} />
-            登录
-          </button>
-          <button className="primary-button" onClick={() => setCurrentPage(pages.register)}>
-            <UserPlus size={17} />
-            注册
-          </button>
+          </a>
+
+          {session ? (
+            <>
+              <button className="text-button user-pill" onClick={() => setCurrentPage(pages.notes)}>
+                {session.user.email}
+              </button>
+              <button className="primary-button" onClick={handleSignOut}>
+                <LogOut size={17} />
+                退出
+              </button>
+            </>
+          ) : (
+            <>
+              <button className="text-button" onClick={() => setCurrentPage(pages.login)}>
+                <LogIn size={17} />
+                登录
+              </button>
+              <button className="primary-button" onClick={() => setCurrentPage(pages.register)}>
+                <UserPlus size={17} />
+                注册
+              </button>
+            </>
+          )}
         </div>
       </nav>
 
-      {currentPage === pages.home && <HomePage onStart={() => setCurrentPage(pages.notes)} />}
-      {currentPage === pages.login && <LoginPage onRegister={() => setCurrentPage(pages.register)} />}
-      {currentPage === pages.register && <RegisterPage onLogin={() => setCurrentPage(pages.login)} />}
-      {currentPage === pages.notes && <NotesPage />}
+      {currentPage === pages.home && (
+        <HomePage authReady={authReady} session={session} onStart={() => setCurrentPage(pages.notes)} />
+      )}
+      {currentPage === pages.login && (
+        <LoginPage onRegister={() => setCurrentPage(pages.register)} onDone={() => setCurrentPage(pages.notes)} />
+      )}
+      {currentPage === pages.register && (
+        <RegisterPage onLogin={() => setCurrentPage(pages.login)} onDone={() => setCurrentPage(pages.notes)} />
+      )}
+      {currentPage === pages.notes && <NotesPage session={session} onLogin={() => setCurrentPage(pages.login)} />}
     </main>
   );
 }
 
-function HomePage({ onStart }) {
+function HomePage({ authReady, session, onStart }) {
   return (
     <>
       <section className="hero-section">
@@ -144,13 +199,21 @@ function HomePage({ onStart }) {
           <div className="hero-actions">
             <button className="primary-button large" onClick={onStart}>
               <Rocket size={18} />
-              查看笔记页
+              {session ? '进入我的笔记' : '查看笔记页'}
             </button>
             <button className="text-button large">
               <Download size={18} />
               下载功能预留
             </button>
           </div>
+
+          <p className="auth-state">
+            {authReady
+              ? session
+                ? `当前已登录：${session.user.email}`
+                : '当前未登录，可以先注册一个测试账号'
+              : '正在检查登录状态...'}
+          </p>
         </div>
 
         <NotePreview />
@@ -176,63 +239,17 @@ function HomePage({ onStart }) {
         </div>
       </section>
 
-      <section className="style-section" aria-label="风格预览">
-        <div className="section-heading">
-          <p className="eyebrow">先看风格</p>
-          <h2>你可以先挑一个大方向</h2>
-        </div>
-
-        <div className="style-grid">
-          {styleOptions.map((item) => (
-            <article className="style-card" key={item.name}>
-              <div className={`style-preview ${item.className}`}>
-                <div className="mock-nav"></div>
-                <div className="mock-hero"></div>
-                <div className="mock-layout">
-                  <span></span>
-                  <span></span>
-                  <span></span>
-                </div>
-              </div>
-              <h3>{item.name}</h3>
-              <p>{item.note}</p>
-            </article>
-          ))}
-        </div>
-
-        <div className="section-heading compact-heading">
-          <p className="eyebrow">第 3 种的换色</p>
-          <h2>手账感也可以不是粉色</h2>
-        </div>
-
-        <div className="color-grid">
-          {journalColors.map((item) => (
-            <article className="style-card" key={item.name}>
-              <div className={`style-preview journal-color ${item.className}`}>
-                <div className="mock-nav"></div>
-                <div className="mock-hero"></div>
-                <div className="mock-layout">
-                  <span></span>
-                  <span></span>
-                  <span></span>
-                </div>
-              </div>
-              <h3>{item.name}</h3>
-              <p>{item.note}</p>
-            </article>
-          ))}
-        </div>
-      </section>
+      <StylePreviewSection />
 
       <section className="roadmap-section" aria-label="项目路线">
         <div className="section-heading">
           <p className="eyebrow">你现在的位置</p>
-          <h2>第 2 步：页面入口能切换</h2>
+          <h2>第 4 步：接入 Supabase 登录</h2>
         </div>
 
         <ol className="roadmap-list">
           {roadmap.map((item, index) => (
-            <li className={index <= 1 ? 'active' : ''} key={item}>
+            <li className={index <= 3 ? 'active' : ''} key={item}>
               <span>{index + 1}</span>
               {item}
             </li>
@@ -252,6 +269,58 @@ function HomePage({ onStart }) {
         </div>
       </section>
     </>
+  );
+}
+
+function StylePreviewSection() {
+  return (
+    <section className="style-section" aria-label="风格预览">
+      <div className="section-heading">
+        <p className="eyebrow">当前风格</p>
+        <h2>清爽工具感 + 薄荷绿</h2>
+      </div>
+
+      <div className="style-grid">
+        {styleOptions.map((item) => (
+          <article className="style-card" key={item.name}>
+            <div className={`style-preview ${item.className}`}>
+              <div className="mock-nav"></div>
+              <div className="mock-hero"></div>
+              <div className="mock-layout">
+                <span></span>
+                <span></span>
+                <span></span>
+              </div>
+            </div>
+            <h3>{item.name}</h3>
+            <p>{item.note}</p>
+          </article>
+        ))}
+      </div>
+
+      <div className="section-heading compact-heading">
+        <p className="eyebrow">备选颜色</p>
+        <h2>手账感也可以不是粉色</h2>
+      </div>
+
+      <div className="color-grid">
+        {journalColors.map((item) => (
+          <article className="style-card" key={item.name}>
+            <div className={`style-preview journal-color ${item.className}`}>
+              <div className="mock-nav"></div>
+              <div className="mock-hero"></div>
+              <div className="mock-layout">
+                <span></span>
+                <span></span>
+                <span></span>
+              </div>
+            </div>
+            <h3>{item.name}</h3>
+            <p>{item.note}</p>
+          </article>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -277,22 +346,67 @@ function NotePreview() {
   );
 }
 
-function LoginPage({ onRegister }) {
+function LoginPage({ onRegister, onDone }) {
+  const [email, setEmail] = React.useState('');
+  const [password, setPassword] = React.useState('');
+  const [message, setMessage] = React.useState('');
+  const [isLoading, setIsLoading] = React.useState(false);
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+    setMessage('');
+
+    if (!isSupabaseConfigured) {
+      setMessage('Supabase 还没有配置好。');
+      return;
+    }
+
+    setIsLoading(true);
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+    setIsLoading(false);
+
+    if (error) {
+      setMessage(`登录失败：${error.message}`);
+      return;
+    }
+
+    setMessage('登录成功。');
+    onDone();
+  }
+
   return (
     <section className="auth-page">
       <div className="auth-card">
         <p className="eyebrow">登录页面</p>
         <h1>进入我的图片笔记</h1>
-        <form className="auth-form">
+        <form className="auth-form" onSubmit={handleSubmit}>
           <label htmlFor="login-email">邮箱</label>
-          <input id="login-email" type="email" placeholder="you@example.com" />
+          <input
+            id="login-email"
+            type="email"
+            placeholder="you@example.com"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            required
+          />
           <label htmlFor="login-password">密码</label>
-          <input id="login-password" type="password" placeholder="请输入密码" />
-          <button className="primary-button large" type="button">
+          <input
+            id="login-password"
+            type="password"
+            placeholder="请输入密码"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            required
+          />
+          <button className="primary-button large" type="submit" disabled={isLoading}>
             <LogIn size={18} />
-            登录
+            {isLoading ? '登录中...' : '登录'}
           </button>
         </form>
+        {message && <p className="form-message">{message}</p>}
         <button className="link-button" onClick={onRegister}>
           还没有账号，去注册
         </button>
@@ -301,22 +415,73 @@ function LoginPage({ onRegister }) {
   );
 }
 
-function RegisterPage({ onLogin }) {
+function RegisterPage({ onLogin, onDone }) {
+  const [email, setEmail] = React.useState('');
+  const [password, setPassword] = React.useState('');
+  const [message, setMessage] = React.useState('');
+  const [isLoading, setIsLoading] = React.useState(false);
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+    setMessage('');
+
+    if (!isSupabaseConfigured) {
+      setMessage('Supabase 还没有配置好。');
+      return;
+    }
+
+    setIsLoading(true);
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+    });
+    setIsLoading(false);
+
+    if (error) {
+      setMessage(`注册失败：${error.message}`);
+      return;
+    }
+
+    if (data.session) {
+      setMessage('注册成功，已经登录。');
+      onDone();
+      return;
+    }
+
+    setMessage('注册成功。请去邮箱里点确认邮件，然后回来登录。');
+  }
+
   return (
     <section className="auth-page">
       <div className="auth-card">
         <p className="eyebrow">注册页面</p>
         <h1>创建一个测试账号</h1>
-        <form className="auth-form">
+        <form className="auth-form" onSubmit={handleSubmit}>
           <label htmlFor="register-email">邮箱</label>
-          <input id="register-email" type="email" placeholder="you@example.com" />
+          <input
+            id="register-email"
+            type="email"
+            placeholder="you@example.com"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            required
+          />
           <label htmlFor="register-password">密码</label>
-          <input id="register-password" type="password" placeholder="至少 6 位" />
-          <button className="primary-button large" type="button">
+          <input
+            id="register-password"
+            type="password"
+            placeholder="至少 6 位"
+            value={password}
+            minLength={6}
+            onChange={(event) => setPassword(event.target.value)}
+            required
+          />
+          <button className="primary-button large" type="submit" disabled={isLoading}>
             <UserPlus size={18} />
-            注册
+            {isLoading ? '注册中...' : '注册'}
           </button>
         </form>
+        {message && <p className="form-message">{message}</p>}
         <button className="link-button" onClick={onLogin}>
           已经有账号，去登录
         </button>
@@ -325,22 +490,38 @@ function RegisterPage({ onLogin }) {
   );
 }
 
-function NotesPage() {
+function NotesPage({ session, onLogin }) {
+  if (!session) {
+    return (
+      <section className="auth-page">
+        <div className="auth-card">
+          <p className="eyebrow">需要登录</p>
+          <h1>先登录，再进入我的笔记</h1>
+          <p className="form-message">这里以后会显示当前用户自己的图片笔记。</p>
+          <button className="primary-button large" onClick={onLogin}>
+            <LogIn size={18} />
+            去登录
+          </button>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="notes-page">
       <div className="section-heading">
         <p className="eyebrow">我的笔记页</p>
         <h1>发布一条图片笔记</h1>
+        <p className="auth-state">当前用户：{session.user.email}</p>
       </div>
 
       <div className="notes-layout">
         <NotePreview />
         <article className="feature-card">
           <ImagePlus size={22} />
-          <h3>后面会接真实功能</h3>
+          <h3>登录已经跑通</h3>
           <p>
-            现在这里只是页面结构。下一阶段接入 Supabase 后，图片会真正上传，
-            笔记会真正保存到数据库。
+            下一步会创建 Supabase 数据表，让这里的标题、正文和图片地址真正保存起来。
           </p>
         </article>
       </div>

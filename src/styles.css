@@ -71,6 +71,7 @@ button {
     transform 160ms ease,
     box-shadow 160ms ease,
     background 160ms ease;
+  text-decoration: none;
 }
 
 .icon-button {
@@ -105,6 +106,12 @@ button {
   transform: translateY(-1px);
 }
 
+.primary-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.68;
+  transform: none;
+}
+
 .hero-section {
   display: grid;
   grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
@@ -137,6 +144,13 @@ button {
   color: #475467;
   font-size: 19px;
   line-height: 1.8;
+}
+
+.auth-state {
+  margin: 16px 0 0;
+  color: #475467;
+  font-size: 14px;
+  font-weight: 700;
 }
 
 .preview-panel,
@@ -580,6 +594,21 @@ button {
   color: #2f8f67;
   cursor: pointer;
   font-weight: 800;
+}
+
+.user-pill {
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.form-message {
+  margin: 14px 0 0;
+  color: #475467;
+  font-size: 14px;
+  line-height: 1.7;
+  text-align: left;
 }
 
 .notes-layout {
