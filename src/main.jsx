@@ -1068,6 +1068,10 @@ function TaskCard({ task, setTasks, setMessage, compact = false }) {
     await updateTaskStatus(task, status, setTasks, setMessage);
   }
 
+  async function handleToggleComplete() {
+    await handleStatusChange(task.status === 'completed' ? 'in_progress' : 'completed');
+  }
+
   async function handleMatrixChange(matrixCategory) {
     const { error } = await supabase.from('tasks').update({ matrix_category: matrixCategory }).eq('id', task.id);
     if (error) {
@@ -1202,7 +1206,19 @@ function TaskCard({ task, setTasks, setMessage, compact = false }) {
       ) : (
         <>
           <div className="item-top">
-            <h3>{task.title}</h3>
+            <div className="task-title-row">
+              {!compact && (
+                <button
+                  className={task.status === 'completed' ? 'complete-toggle-button active' : 'complete-toggle-button'}
+                  onClick={handleToggleComplete}
+                  aria-label={task.status === 'completed' ? '恢复为进行中' : '标记已完成'}
+                  title={task.status === 'completed' ? '恢复为进行中' : '标记已完成'}
+                >
+                  <CheckCircle2 size={17} />
+                </button>
+              )}
+              <h3>{task.title}</h3>
+            </div>
             {!compact && (
               isConfirmingDelete ? (
                 <div className="confirm-delete">

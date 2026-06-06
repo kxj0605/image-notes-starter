@@ -541,6 +541,31 @@ button {
   padding: 16px;
 }
 
+.task-title-row {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.complete-toggle-button {
+  display: grid;
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  place-items: center;
+  border-radius: 999px;
+  background: #f8faf9;
+  color: #98a2b3;
+  cursor: pointer;
+}
+
+.complete-toggle-button:hover,
+.complete-toggle-button.active {
+  background: #edf7f1;
+  color: #2f8f67;
+}
+
 .item-card.task-overdue {
   border-color: #fecaca;
   background: #fffafa;
