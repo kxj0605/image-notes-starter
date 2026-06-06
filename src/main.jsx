@@ -503,6 +503,7 @@ function WorkspacePage({ session, profile, initialTab, onProfileChange, onLogin 
 
   const today = getToday();
   const todayTasks = tasks.filter((task) => task.task_date === today);
+  const overdueTasks = tasks.filter(isTaskOverdue);
   const unfinishedTasks = tasks.filter((task) => task.status !== 'completed');
 
   return (
@@ -516,7 +517,7 @@ function WorkspacePage({ session, profile, initialTab, onProfileChange, onLogin 
             </p>
           </div>
           <h1>你好，{profile?.nickname ?? session.user.email}</h1>
-          <p className="auth-state">今日 {todayTasks.length} 项，未完成 {unfinishedTasks.length} 项</p>
+          <p className="auth-state">今日 {todayTasks.length} 项，已逾期 {overdueTasks.length} 项，未完成 {unfinishedTasks.length} 项</p>
         </div>
         <div className="metric-row">
           <Metric label="笔记" value={notes.length} />
@@ -577,6 +578,7 @@ function TabButton({ icon: Icon, label, value, activeTab, onClick }) {
 function Dashboard({ notes, tasks }) {
   const today = getToday();
   const todayTasks = tasks.filter((task) => task.task_date === today);
+  const overdueTasks = tasks.filter(isTaskOverdue);
   const importantUrgent = tasks.filter((task) => task.matrix_category === 'important_urgent');
   const stalledImportant = tasks.filter(
     (task) => task.matrix_category === 'important_urgent' && task.status === 'stalled',
@@ -585,6 +587,7 @@ function Dashboard({ notes, tasks }) {
   return (
     <div className="dashboard-grid">
       <InfoCard title="今日安排" items={todayTasks} emptyText="今天还没有任务。" />
+      <InfoCard title="已逾期" items={overdueTasks} emptyText="没有逾期任务。" />
       <InfoCard title="重点任务" items={importantUrgent} emptyText="暂时没有重要紧急任务。" />
       <div className="panel-card">
         <h2>进展概览</h2>
@@ -602,6 +605,7 @@ function Dashboard({ notes, tasks }) {
         <div className="summary-list">
           <span>我的笔记：{notes.length}</span>
           <span>公开笔记：{notes.filter((note) => note.visibility === 'public').length}</span>
+          <span>已逾期任务：{overdueTasks.length}</span>
           <span>高风险任务：{stalledImportant.length}</span>
         </div>
       </div>
@@ -620,7 +624,7 @@ function InfoCard({ title, items, emptyText }) {
           {items.slice(0, 5).map((task) => (
             <span key={task.id}>
               {task.title}
-              <small>{formatDate(task.task_date)}</small>
+              <small className={isTaskOverdue(task) ? 'text-overdue' : ''}>{getTaskTimingInfo(task).label}</small>
             </span>
           ))}
         </div>
@@ -942,6 +946,7 @@ function TasksPanel({ session, tasks, setTasks, setMessage }) {
           <select value={filter} onChange={(event) => setFilter(event.target.value)}>
             <option value="all">全部</option>
             <option value="today">今日</option>
+            <option value="overdue">已逾期</option>
             <option value="unfinished">未完成</option>
             <option value="completed">已完成</option>
             <option value="in_progress">进行中</option>
@@ -1070,8 +1075,10 @@ function TaskCard({ task, setTasks, setMessage, compact = false }) {
     setMessage?.('任务已更新。');
   }
 
+  const timingInfo = getTaskTimingInfo(task);
+
   return (
-    <article className={task.status === 'completed' ? 'item-card completed' : 'item-card'}>
+    <article className={[task.status === 'completed' ? 'item-card completed' : 'item-card', isTaskOverdue(task) ? 'task-overdue' : ''].filter(Boolean).join(' ')}>
       {isEditing ? (
         <form className="form-stack edit-task-form" onSubmit={handleUpdateTask}>
           <label htmlFor={`edit-task-title-${task.id}`}>任务标题</label>
@@ -1154,7 +1161,7 @@ function TaskCard({ task, setTasks, setMessage, compact = false }) {
           </div>
           {task.description && <p>{task.description}</p>}
           <div className="tag-row">
-            <span className="tag">{formatDate(task.task_date)} {formatTime(task.task_time)}</span>
+            <span className={timingInfo.className}>{timingInfo.label}</span>
             <span className="tag">{getLabel(matrixOptions, task.matrix_category)}</span>
             <span className={`tag status-${task.status}`}>{getLabel(statusOptions, task.status)}</span>
           </div>
@@ -1398,6 +1405,7 @@ function EmptyState({ text }) {
 function filterTasks(tasks, filter) {
   const today = getToday();
   if (filter === 'today') return tasks.filter((task) => task.task_date === today);
+  if (filter === 'overdue') return tasks.filter(isTaskOverdue);
   if (filter === 'unfinished') return tasks.filter((task) => task.status !== 'completed');
   if (filter === 'completed') return tasks.filter((task) => task.status === 'completed');
   if (filter === 'in_progress') return tasks.filter((task) => task.status === 'in_progress');
@@ -1405,6 +1413,41 @@ function filterTasks(tasks, filter) {
   if (filter === 'stalled') return tasks.filter((task) => task.status === 'stalled');
   if (filter === 'important_urgent') return tasks.filter((task) => task.matrix_category === 'important_urgent');
   return tasks;
+}
+
+function isTaskOverdue(task) {
+  if (!task.task_date || task.status === 'completed') return false;
+
+  const today = getToday();
+  if (task.task_date < today) return true;
+  if (task.task_date > today) return false;
+  if (!task.task_time) return false;
+
+  return new Date(`${task.task_date}T${task.task_time}`).getTime() < Date.now();
+}
+
+function getTaskTimingInfo(task) {
+  const timeText = formatTime(task.task_time);
+
+  if (isTaskOverdue(task)) {
+    const dateText = task.task_date === getToday() ? '今天' : formatDate(task.task_date);
+    return {
+      className: 'tag timing-overdue',
+      label: `已逾期 · ${dateText}${timeText ? ` ${timeText}` : ''}`,
+    };
+  }
+
+  if (task.status !== 'completed' && task.task_date === getToday()) {
+    return {
+      className: 'tag timing-today',
+      label: `今天${timeText ? ` · ${timeText}` : ''}`,
+    };
+  }
+
+  return {
+    className: 'tag',
+    label: `${formatDate(task.task_date)} ${timeText}`.trim(),
+  };
 }
 
 function sortTasks(a, b) {

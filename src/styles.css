@@ -496,8 +496,18 @@ button {
   color: #667085;
 }
 
+.compact-list small.text-overdue {
+  color: #b42318;
+  font-weight: 800;
+}
+
 .item-card {
   padding: 16px;
+}
+
+.item-card.task-overdue {
+  border-color: #fecaca;
+  background: #fffafa;
 }
 
 .edit-note-form,
@@ -536,6 +546,16 @@ button {
 .tag.public {
   background: #eff8ff;
   color: #175cd3;
+}
+
+.timing-today {
+  background: #ecfdf3;
+  color: #067647;
+}
+
+.timing-overdue {
+  background: #fff1f1;
+  color: #b42318;
 }
 
 .status-completed {
