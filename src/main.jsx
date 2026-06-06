@@ -239,7 +239,7 @@ function App() {
           }}
         />
       )}
-      {currentPage === pages.publicNotes && <PublicNotesPage />}
+      {currentPage === pages.publicNotes && <PublicNotesPage session={session} profile={profile} onLogin={() => setCurrentPage(pages.login)} />}
       {currentPage === pages.workspace && (
         <WorkspacePage
           session={session}
@@ -1388,9 +1388,11 @@ function ProfilePanel({ session, profile, onProfileChange, setMessage }) {
   );
 }
 
-function PublicNotesPage() {
+function PublicNotesPage({ session, profile, onLogin }) {
   const [notes, setNotes] = React.useState([]);
   const [profiles, setProfiles] = React.useState({});
+  const [commentsByNote, setCommentsByNote] = React.useState({});
+  const [commentsEnabled, setCommentsEnabled] = React.useState(true);
   const [isLoading, setIsLoading] = React.useState(true);
   const [message, setMessage] = React.useState('');
 
@@ -1414,18 +1416,81 @@ function PublicNotesPage() {
         return;
       }
 
-      const userIds = [...new Set((data ?? []).map((note) => note.user_id))];
+      const publicNotes = data ?? [];
+      const noteIds = publicNotes.map((note) => note.id);
+      let publicComments = [];
+
+      if (noteIds.length > 0) {
+        const { data: commentData, error: commentError } = await supabase
+          .from('comments')
+          .select('id, note_id, user_id, content, created_at')
+          .in('note_id', noteIds)
+          .order('created_at', { ascending: true });
+
+        if (commentError) {
+          setCommentsEnabled(false);
+          setMessage('评论区需要先在 Supabase 创建 comments 表，公开笔记仍然可以正常查看。');
+        } else {
+          publicComments = commentData ?? [];
+          setCommentsEnabled(true);
+          setCommentsByNote(
+            publicComments.reduce((groups, comment) => {
+              groups[comment.note_id] = [...(groups[comment.note_id] ?? []), comment];
+              return groups;
+            }, {}),
+          );
+        }
+      }
+
+      const userIds = [...new Set([...publicNotes.map((note) => note.user_id), ...publicComments.map((comment) => comment.user_id)])];
       if (userIds.length > 0) {
         const { data: profileData } = await supabase.from('profiles').select('id, nickname').in('id', userIds);
         setProfiles(Object.fromEntries((profileData ?? []).map((profile) => [profile.id, profile.nickname])));
       }
 
-      setNotes(data ?? []);
+      setNotes(publicNotes);
       setIsLoading(false);
     }
 
     loadPublicNotes();
   }, []);
+
+  async function handleCreateComment(noteId, content, clearComment) {
+    setMessage('');
+
+    if (!session) {
+      setMessage('请先登录，再发表评论。');
+      return;
+    }
+
+    const text = content.trim();
+    if (!text) {
+      setMessage('评论内容不能为空。');
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from('comments')
+      .insert({ note_id: noteId, user_id: session.user.id, content: text })
+      .select('id, note_id, user_id, content, created_at')
+      .single();
+
+    if (error) {
+      setMessage(`发表评论失败：${error.message}`);
+      return;
+    }
+
+    setProfiles((currentProfiles) => ({
+      ...currentProfiles,
+      [session.user.id]: profile?.nickname ?? session.user.email,
+    }));
+    setCommentsByNote((currentComments) => ({
+      ...currentComments,
+      [noteId]: [...(currentComments[noteId] ?? []), data],
+    }));
+    clearComment();
+    setMessage('评论已发布。');
+  }
 
   return (
     <section className="public-page">
@@ -1448,11 +1513,79 @@ function PublicNotesPage() {
               <div className="tag-row">
                 <span>{new Date(note.created_at).toLocaleString('zh-CN')}</span>
               </div>
+              <CommentsSection
+                comments={commentsByNote[note.id] ?? []}
+                commentsEnabled={commentsEnabled}
+                profiles={profiles}
+                session={session}
+                onLogin={onLogin}
+                onCreateComment={(content, clearComment) => handleCreateComment(note.id, content, clearComment)}
+              />
             </article>
           ))}
         </div>
       )}
     </section>
+  );
+}
+
+function CommentsSection({ comments, commentsEnabled, profiles, session, onLogin, onCreateComment }) {
+  const [draft, setDraft] = React.useState('');
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+    setIsSubmitting(true);
+    await onCreateComment(draft, () => setDraft(''));
+    setIsSubmitting(false);
+  }
+
+  return (
+    <div className="comments-box">
+      <div className="comments-heading">
+        <strong>评论</strong>
+        <span>{comments.length}</span>
+      </div>
+
+      {!commentsEnabled ? (
+        <p className="muted-text">评论区还没连接数据库。</p>
+      ) : comments.length === 0 ? (
+        <p className="muted-text">还没有评论，可以留下第一条想法。</p>
+      ) : (
+        <div className="comment-list">
+          {comments.map((comment) => (
+            <div className="comment-item" key={comment.id}>
+              <div>
+                <strong>{profiles[comment.user_id] ?? '匿名用户'}</strong>
+                <span>{new Date(comment.created_at).toLocaleString('zh-CN')}</span>
+              </div>
+              <p>{comment.content}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {commentsEnabled && (
+        session ? (
+          <form className="comment-form" onSubmit={handleSubmit}>
+            <textarea
+              rows={2}
+              value={draft}
+              placeholder="写一条评论..."
+              maxLength={500}
+              onChange={(event) => setDraft(event.target.value)}
+            />
+            <button className="primary-button" type="submit" disabled={isSubmitting || !draft.trim()}>
+              {isSubmitting ? '发布中...' : '发布评论'}
+            </button>
+          </form>
+        ) : (
+          <button className="text-button comment-login-button" onClick={onLogin}>
+            登录后评论
+          </button>
+        )
+      )}
+    </div>
   );
 }
 
