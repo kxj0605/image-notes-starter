@@ -513,7 +513,7 @@ function WorkspacePage({ session, profile, initialTab, onProfileChange, onLogin 
             <p className="eyebrow">工作台</p>
             <p className="private-workspace-note">
               <ShieldCheck size={14} />
-              <span>私人工作台：任务和私密笔记只对你可见，只有公开笔记会出现在公开笔记页。</span>
+              <span>私密内容仅自己可见，公开笔记会对外展示。</span>
             </p>
           </div>
           <h1>你好，{profile?.nickname ?? session.user.email}</h1>
