@@ -333,7 +333,8 @@ button {
 }
 
 .form-actions,
-.item-actions {
+.item-actions,
+.confirm-delete {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -654,6 +655,45 @@ button {
 }
 
 .small-action-button:hover {
+  background: #edf7f1;
+  color: #2f8f67;
+}
+
+.confirm-delete {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  color: #667085;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.danger-confirm-button {
+  min-height: 34px;
+  border-radius: 8px;
+  padding: 0 10px;
+  background: #fff1f1;
+  color: #b42318;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.danger-confirm-button:hover {
+  background: #fee4e2;
+}
+
+.cancel-confirm-button {
+  min-height: 34px;
+  border-radius: 8px;
+  padding: 0 10px;
+  background: #f8faf9;
+  color: #344054;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.cancel-confirm-button:hover {
   background: #edf7f1;
   color: #2f8f67;
 }

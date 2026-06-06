@@ -658,12 +658,14 @@ function NotesPanel({ session, notes, setNotes, setMessage }) {
   const [content, setContent] = React.useState('');
   const [visibility, setVisibility] = React.useState('private');
   const [editingNoteId, setEditingNoteId] = React.useState(null);
+  const [confirmingDeleteNoteId, setConfirmingDeleteNoteId] = React.useState(null);
   const [editForm, setEditForm] = React.useState({ title: '', content: '', visibility: 'private' });
   const [isSaving, setIsSaving] = React.useState(false);
   const [isUpdating, setIsUpdating] = React.useState(false);
 
   function startEditNote(note) {
     setEditingNoteId(note.id);
+    setConfirmingDeleteNoteId(null);
     setEditForm({
       title: note.title,
       content: note.content ?? '',
@@ -716,13 +718,13 @@ function NotesPanel({ session, notes, setNotes, setMessage }) {
   }
 
   async function handleDeleteNote(note) {
-    if (!window.confirm('确认删除这条笔记吗？')) return;
     const { error } = await supabase.from('notes').delete().eq('id', note.id);
     if (error) {
       setMessage(`删除笔记失败：${error.message}`);
       return;
     }
     setNotes((currentNotes) => currentNotes.filter((item) => item.id !== note.id));
+    setConfirmingDeleteNoteId(null);
     setMessage('笔记已删除。');
   }
 
@@ -826,14 +828,26 @@ function NotesPanel({ session, notes, setNotes, setMessage }) {
                   <>
                     <div className="item-top">
                       <h3>{note.title}</h3>
-                      <div className="item-actions">
-                        <button className="small-action-button" onClick={() => startEditNote(note)} aria-label="编辑笔记" title="编辑笔记">
-                          <Pencil size={15} />
-                        </button>
-                        <button className="delete-button" onClick={() => handleDeleteNote(note)} aria-label="删除笔记">
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
+                      {confirmingDeleteNoteId === note.id ? (
+                        <div className="confirm-delete">
+                          <span>确认删除吗？</span>
+                          <button className="danger-confirm-button" onClick={() => handleDeleteNote(note)}>
+                            删除
+                          </button>
+                          <button className="cancel-confirm-button" onClick={() => setConfirmingDeleteNoteId(null)}>
+                            取消
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="item-actions">
+                          <button className="small-action-button" onClick={() => startEditNote(note)} aria-label="编辑笔记" title="编辑笔记">
+                            <Pencil size={15} />
+                          </button>
+                          <button className="delete-button" onClick={() => setConfirmingDeleteNoteId(note.id)} aria-label="删除笔记" title="删除笔记">
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      )}
                     </div>
                     {note.content && <p>{note.content}</p>}
                     <div className="tag-row">
@@ -1007,6 +1021,7 @@ function TaskCard({ task, setTasks, setMessage, compact = false }) {
     status: task.status,
   });
   const [isUpdating, setIsUpdating] = React.useState(false);
+  const [isConfirmingDelete, setIsConfirmingDelete] = React.useState(false);
 
   React.useEffect(() => {
     if (!isEditing) {
@@ -1054,7 +1069,6 @@ function TaskCard({ task, setTasks, setMessage, compact = false }) {
   }
 
   async function handleDeleteTask() {
-    if (!window.confirm('确认删除这个任务吗？')) return;
     const { error } = await supabase.from('tasks').delete().eq('id', task.id);
     if (error) {
       setMessage?.(`删除任务失败：${error.message}`);
@@ -1178,14 +1192,34 @@ function TaskCard({ task, setTasks, setMessage, compact = false }) {
           <div className="item-top">
             <h3>{task.title}</h3>
             {!compact && (
-              <div className="item-actions">
-                <button className="small-action-button" onClick={() => setIsEditing(true)} aria-label="编辑任务" title="编辑任务">
-                  <Pencil size={15} />
-                </button>
-                <button className="delete-button" onClick={handleDeleteTask} aria-label="删除任务">
-                  <Trash2 size={16} />
-                </button>
-              </div>
+              isConfirmingDelete ? (
+                <div className="confirm-delete">
+                  <span>确认删除吗？</span>
+                  <button className="danger-confirm-button" onClick={handleDeleteTask}>
+                    删除
+                  </button>
+                  <button className="cancel-confirm-button" onClick={() => setIsConfirmingDelete(false)}>
+                    取消
+                  </button>
+                </div>
+              ) : (
+                <div className="item-actions">
+                  <button
+                    className="small-action-button"
+                    onClick={() => {
+                      setIsEditing(true);
+                      setIsConfirmingDelete(false);
+                    }}
+                    aria-label="编辑任务"
+                    title="编辑任务"
+                  >
+                    <Pencil size={15} />
+                  </button>
+                  <button className="delete-button" onClick={() => setIsConfirmingDelete(true)} aria-label="删除任务" title="删除任务">
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              )
             )}
           </div>
           {task.description && <p>{task.description}</p>}
