@@ -1174,7 +1174,7 @@ function TaskCard({ task, setTasks, setMessage, compact = false }) {
           {task.description && <p>{task.description}</p>}
           <div className="tag-row">
             <span className={timingInfo.className}>{timingInfo.label}</span>
-            <span className="tag">{getLabel(matrixOptions, task.matrix_category)}</span>
+            <span className={`tag matrix-tag matrix-${task.matrix_category}`}>{getLabel(matrixOptions, task.matrix_category)}</span>
             <span className={`tag status-${task.status}`}>{getLabel(statusOptions, task.status)}</span>
           </div>
           {!compact && (
