@@ -1492,6 +1492,22 @@ function PublicNotesPage({ session, profile, onLogin }) {
     setMessage('评论已发布。');
   }
 
+  async function handleDeleteComment(noteId, commentId) {
+    setMessage('');
+
+    const { error } = await supabase.from('comments').delete().eq('id', commentId);
+    if (error) {
+      setMessage(`删除评论失败：${error.message}`);
+      return;
+    }
+
+    setCommentsByNote((currentComments) => ({
+      ...currentComments,
+      [noteId]: (currentComments[noteId] ?? []).filter((comment) => comment.id !== commentId),
+    }));
+    setMessage('评论已删除。');
+  }
+
   return (
     <section className="public-page">
       <div className="section-heading">
@@ -1520,6 +1536,7 @@ function PublicNotesPage({ session, profile, onLogin }) {
                 session={session}
                 onLogin={onLogin}
                 onCreateComment={(content, clearComment) => handleCreateComment(note.id, content, clearComment)}
+                onDeleteComment={(commentId) => handleDeleteComment(note.id, commentId)}
               />
             </article>
           ))}
@@ -1529,15 +1546,24 @@ function PublicNotesPage({ session, profile, onLogin }) {
   );
 }
 
-function CommentsSection({ comments, commentsEnabled, profiles, session, onLogin, onCreateComment }) {
+function CommentsSection({ comments, commentsEnabled, profiles, session, onLogin, onCreateComment, onDeleteComment }) {
   const [draft, setDraft] = React.useState('');
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [confirmingDeleteCommentId, setConfirmingDeleteCommentId] = React.useState(null);
+  const [deletingCommentId, setDeletingCommentId] = React.useState(null);
 
   async function handleSubmit(event) {
     event.preventDefault();
     setIsSubmitting(true);
     await onCreateComment(draft, () => setDraft(''));
     setIsSubmitting(false);
+  }
+
+  async function handleDeleteComment(commentId) {
+    setDeletingCommentId(commentId);
+    await onDeleteComment(commentId);
+    setDeletingCommentId(null);
+    setConfirmingDeleteCommentId(null);
   }
 
   return (
@@ -1555,9 +1581,37 @@ function CommentsSection({ comments, commentsEnabled, profiles, session, onLogin
         <div className="comment-list">
           {comments.map((comment) => (
             <div className="comment-item" key={comment.id}>
-              <div>
-                <strong>{profiles[comment.user_id] ?? '匿名用户'}</strong>
-                <span>{new Date(comment.created_at).toLocaleString('zh-CN')}</span>
+              <div className="comment-meta">
+                <div className="comment-author">
+                  <strong>{profiles[comment.user_id] ?? '匿名用户'}</strong>
+                  <span>{new Date(comment.created_at).toLocaleString('zh-CN')}</span>
+                </div>
+                {session?.user.id === comment.user_id && (
+                  confirmingDeleteCommentId === comment.id ? (
+                    <div className="confirm-delete comment-confirm-delete">
+                      <span>确认删除吗？</span>
+                      <button
+                        className="danger-confirm-button"
+                        onClick={() => handleDeleteComment(comment.id)}
+                        disabled={deletingCommentId === comment.id}
+                      >
+                        {deletingCommentId === comment.id ? '删除中...' : '删除'}
+                      </button>
+                      <button className="cancel-confirm-button" onClick={() => setConfirmingDeleteCommentId(null)} disabled={deletingCommentId === comment.id}>
+                        取消
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      className="delete-button comment-delete-button"
+                      onClick={() => setConfirmingDeleteCommentId(comment.id)}
+                      aria-label="删除评论"
+                      title="删除评论"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  )
+                )}
               </div>
               <p>{comment.content}</p>
             </div>

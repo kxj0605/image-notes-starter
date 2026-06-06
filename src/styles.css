@@ -831,7 +831,7 @@ button {
 }
 
 .comments-heading,
-.comment-item div {
+.comment-meta {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -874,6 +874,22 @@ button {
 .comment-item span {
   color: #667085;
   font-size: 12px;
+}
+
+.comment-author {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.comment-delete-button {
+  width: 30px;
+  height: 30px;
+  min-height: 30px;
+}
+
+.comment-confirm-delete {
+  margin-left: auto;
 }
 
 .comment-item p {
