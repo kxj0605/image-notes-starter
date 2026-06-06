@@ -54,6 +54,12 @@ function getToday() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function getRelativeDate(offsetDays) {
+  const date = new Date();
+  date.setDate(date.getDate() + offsetDays);
+  return date.toISOString().slice(0, 10);
+}
+
 function makeNickname(email = '') {
   const prefix = email.split('@')[0] || '用户';
   const number = Math.floor(1000 + Math.random() * 9000);
@@ -939,6 +945,17 @@ function TasksPanel({ session, tasks, setTasks, setMessage }) {
             时间
             <input type="time" value={form.task_time} onChange={(event) => updateForm('task_time', event.target.value)} />
           </label>
+        </div>
+        <div className="quick-date-row" aria-label="快捷日期">
+          <button type="button" onClick={() => updateForm('task_date', getRelativeDate(0))}>
+            今天
+          </button>
+          <button type="button" onClick={() => updateForm('task_date', getRelativeDate(1))}>
+            明天
+          </button>
+          <button type="button" onClick={() => updateForm('task_date', getRelativeDate(2))}>
+            后天
+          </button>
         </div>
         <button className="primary-button large" disabled={isSaving}>
           <Plus size={18} />

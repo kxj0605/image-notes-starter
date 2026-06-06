@@ -489,6 +489,27 @@ button {
   gap: 8px;
 }
 
+.quick-date-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.quick-date-row button {
+  min-height: 34px;
+  border-radius: 8px;
+  padding: 0 12px;
+  background: #edf7f1;
+  color: #2f8f67;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.quick-date-row button:hover {
+  background: #dff3e8;
+}
+
 .card-list,
 .compact-list,
 .summary-list {
