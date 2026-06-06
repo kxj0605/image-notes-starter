@@ -592,9 +592,9 @@ function Dashboard({ notes, tasks }) {
 
   return (
     <div className="dashboard-grid">
-      <InfoCard title="今日安排" items={todayTasks} emptyText="今天还没有任务。" />
-      <InfoCard title="已逾期" items={overdueTasks} emptyText="没有逾期任务。" />
-      <InfoCard title="重点任务" items={importantUrgent} emptyText="暂时没有重要紧急任务。" />
+      <InfoCard title="今日安排" items={todayTasks} emptyText="今天还没有任务，可以先添加一个今天要做的事。" />
+      <InfoCard title="已逾期" items={overdueTasks} emptyText="没有逾期任务，状态不错。" />
+      <InfoCard title="重点任务" items={importantUrgent} emptyText="暂时没有重要紧急任务，可以先安心处理计划内的事。" />
       <div className="panel-card">
         <h2>进展概览</h2>
         {statusOptions.map((status) => (
@@ -785,7 +785,7 @@ function NotesPanel({ session, notes, setNotes, setMessage }) {
       <section className="panel-card">
         <h2>我的笔记</h2>
         {notes.length === 0 ? (
-          <EmptyState text="还没有笔记。" />
+          <EmptyState text="还没有笔记，可以先写一个想法或记录。" />
         ) : (
           <div className="card-list">
             {notes.map((note) => (
@@ -999,7 +999,7 @@ function TasksPanel({ session, tasks, setTasks, setMessage }) {
 }
 
 function TaskList({ tasks, setTasks, setMessage }) {
-  if (tasks.length === 0) return <EmptyState text="这里还没有任务。" />;
+  if (tasks.length === 0) return <EmptyState text="当前筛选下没有任务，可以切换筛选或新增一条任务。" />;
 
   return (
     <div className="card-list">
@@ -1311,7 +1311,7 @@ function CalendarPanel({ tasks, onStatusChange }) {
       <section className="panel-card">
         <h2>{formatDate(selectedDate)}</h2>
         {selectedTasks.length === 0 ? (
-          <EmptyState text="这一天没有任务。" />
+          <EmptyState text="这一天还没有任务，可以回到任务页添加安排。" />
         ) : (
           <div className="card-list">
             {selectedTasks.map((task) => (
@@ -1437,7 +1437,7 @@ function PublicNotesPage() {
       {isLoading ? (
         <p className="form-message global-message">正在读取公开笔记...</p>
       ) : notes.length === 0 ? (
-        <EmptyState text="还没有公开笔记。" />
+        <EmptyState text="还没有公开笔记，公开后的笔记会显示在这里。" />
       ) : (
         <div className="public-grid">
           {notes.map((note) => (
