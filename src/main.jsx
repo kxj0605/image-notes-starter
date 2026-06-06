@@ -480,7 +480,7 @@ function WorkspacePage({ session, profile, initialTab, onProfileChange, onLogin 
     }
 
     setNotes(noteData ?? []);
-    setTasks(taskData ?? []);
+    setTasks((taskData ?? []).sort(sortTasks));
   }, [session]);
 
   React.useEffect(() => {
@@ -1224,7 +1224,7 @@ async function updateTaskStatus(task, status, setTasks, setMessage) {
     setMessage?.(`更新任务失败：${error.message}`);
     return;
   }
-  setTasks?.((currentTasks) => currentTasks.map((item) => (item.id === task.id ? { ...item, status } : item)));
+  setTasks?.((currentTasks) => currentTasks.map((item) => (item.id === task.id ? { ...item, status } : item)).sort(sortTasks));
   setMessage?.('任务状态已更新。');
 }
 
@@ -1480,7 +1480,18 @@ function getTaskTimingInfo(task) {
 }
 
 function sortTasks(a, b) {
+  const priorityA = getTaskSortPriority(a);
+  const priorityB = getTaskSortPriority(b);
+  if (priorityA !== priorityB) return priorityA - priorityB;
+
   return `${a.task_date}${a.task_time ?? ''}`.localeCompare(`${b.task_date}${b.task_time ?? ''}`);
+}
+
+function getTaskSortPriority(task) {
+  if (task.status === 'completed') return 4;
+  if (isTaskOverdue(task)) return 1;
+  if (task.task_date === getToday()) return 2;
+  return 3;
 }
 
 function getMonthDays(currentDate) {
