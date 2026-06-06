@@ -146,9 +146,21 @@ function App() {
         </button>
 
         <div className="nav-actions">
-          <button className="text-button" onClick={() => setCurrentPage(pages.publicNotes)}>
-            公开笔记
-          </button>
+          {currentPage === pages.publicNotes && session ? (
+            <button
+              className="text-button"
+              onClick={() => {
+                setWorkspaceTab(tabs.dashboard);
+                setCurrentPage(pages.workspace);
+              }}
+            >
+              返回工作台
+            </button>
+          ) : (
+            <button className="text-button" onClick={() => setCurrentPage(pages.publicNotes)}>
+              公开笔记
+            </button>
+          )}
           <a
             className="icon-button"
             href="https://github.com/kxj0605/image-notes-starter"
