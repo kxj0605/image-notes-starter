@@ -3,14 +3,13 @@ import { createRoot } from 'react-dom/client';
 import {
   Camera,
   Database,
-  Download,
   Github,
   ImagePlus,
-  Lock,
   LogIn,
   LogOut,
-  Rocket,
+  Trash2,
   UserPlus,
+  X,
 } from 'lucide-react';
 import { isSupabaseConfigured, supabase } from './supabaseClient';
 import './styles.css';
@@ -21,80 +20,6 @@ const pages = {
   register: 'register',
   notes: 'notes',
 };
-
-const steps = [
-  {
-    icon: LogIn,
-    title: '登录账号',
-    text: '现在这里已经接入 Supabase，可以开始测试注册和登录。',
-  },
-  {
-    icon: Database,
-    title: '保存笔记',
-    text: '下一步会创建数据库表，把标题、正文、图片地址保存进去。',
-  },
-  {
-    icon: ImagePlus,
-    title: '上传图片',
-    text: '后面图片会放进 Supabase Storage，再显示在笔记里。',
-  },
-];
-
-const roadmap = [
-  '先做能打开的网页',
-  '上传代码到 GitHub',
-  '用 Vercel 发布网站',
-  '接入 Supabase 登录',
-  '保存和读取自己的笔记',
-  '加入图片上传',
-  '第二阶段加入文件下载',
-];
-
-const styleOptions = [
-  {
-    className: 'clean',
-    name: '清爽工具感',
-    note: '适合认真记录、长期使用',
-  },
-  {
-    className: 'album',
-    name: '相册生活感',
-    note: '适合图片多、像个人相册',
-  },
-  {
-    className: 'journal',
-    name: '可爱手账感',
-    note: '适合轻松、温柔、日常记录',
-  },
-  {
-    className: 'focus',
-    name: '深色专业感',
-    note: '适合工具站、下载站、技术感',
-  },
-];
-
-const journalColors = [
-  {
-    className: 'mint',
-    name: '薄荷绿',
-    note: '清新、轻松，适合图片笔记',
-  },
-  {
-    className: 'sky',
-    name: '天空蓝',
-    note: '干净、安静，比较接近工具感',
-  },
-  {
-    className: 'butter',
-    name: '奶油黄',
-    note: '温暖但不厚重，像日常手账',
-  },
-  {
-    className: 'lilac',
-    name: '淡丁香',
-    note: '柔和一点，但不做成大片紫色',
-  },
-];
 
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
@@ -175,7 +100,13 @@ function App() {
       </nav>
 
       {currentPage === pages.home && (
-        <HomePage authReady={authReady} session={session} onStart={() => setCurrentPage(pages.notes)} />
+        <HomePage
+          authReady={authReady}
+          session={session}
+          onLogin={() => setCurrentPage(pages.login)}
+          onRegister={() => setCurrentPage(pages.register)}
+          onOpenNotes={() => setCurrentPage(pages.notes)}
+        />
       )}
       {currentPage === pages.login && (
         <LoginPage onRegister={() => setCurrentPage(pages.register)} onDone={() => setCurrentPage(pages.notes)} />
@@ -188,164 +119,50 @@ function App() {
   );
 }
 
-function HomePage({ authReady, session, onStart }) {
+function HomePage({ authReady, session, onLogin, onRegister, onOpenNotes }) {
   return (
-    <>
-      <section className="hero-section">
-        <div className="hero-copy">
-          <p className="eyebrow">GitHub + Vercel + Supabase 练手项目</p>
-          <h1>我的图片笔记网站</h1>
-          <p className="hero-text">
-            第一阶段先完成登录、数据保存和图片上传。第二阶段再加文件下载入口。
-          </p>
+    <section className="home-grid">
+      <div className="hero-copy">
+        <p className="eyebrow">图片记录工具</p>
+        <h1>把照片和想法收进自己的笔记里</h1>
+        <p className="hero-text">登录后可以保存图片笔记，每个账号只看到自己的内容。</p>
 
-          <div className="hero-actions">
-            <button className="primary-button large" onClick={onStart}>
-              <Rocket size={18} />
-              {session ? '进入我的笔记' : '查看笔记页'}
+        <div className="hero-actions">
+          {session ? (
+            <button className="primary-button large" onClick={onOpenNotes}>
+              <Database size={18} />
+              进入我的笔记
             </button>
-            <button className="text-button large">
-              <Download size={18} />
-              下载功能预留
-            </button>
-          </div>
-
-          <p className="auth-state">
-            {authReady
-              ? session
-                ? `当前已登录：${session.user.email}`
-                : '当前未登录，可以先注册一个测试账号'
-              : '正在检查登录状态...'}
-          </p>
+          ) : (
+            <>
+              <button className="primary-button large" onClick={onRegister}>
+                <UserPlus size={18} />
+                注册账号
+              </button>
+              <button className="text-button large" onClick={onLogin}>
+                <LogIn size={18} />
+                登录
+              </button>
+            </>
+          )}
         </div>
 
-        <NotePreview />
-      </section>
-
-      <section className="work-section" aria-label="核心功能">
-        <div className="section-heading">
-          <p className="eyebrow">第一阶段</p>
-          <h2>先把核心网站跑通</h2>
-        </div>
-
-        <div className="feature-grid">
-          {steps.map((item) => {
-            const Icon = item.icon;
-            return (
-              <article className="feature-card" key={item.title}>
-                <Icon size={22} />
-                <h3>{item.title}</h3>
-                <p>{item.text}</p>
-              </article>
-            );
-          })}
-        </div>
-      </section>
-
-      <StylePreviewSection />
-
-      <section className="roadmap-section" aria-label="项目路线">
-        <div className="section-heading">
-          <p className="eyebrow">你现在的位置</p>
-          <h2>第 4 步：接入 Supabase 登录</h2>
-        </div>
-
-        <ol className="roadmap-list">
-          {roadmap.map((item, index) => (
-            <li className={index <= 3 ? 'active' : ''} key={item}>
-              <span>{index + 1}</span>
-              {item}
-            </li>
-          ))}
-        </ol>
-      </section>
-
-      <section className="download-section" aria-label="第二阶段">
-        <Lock size={22} />
-        <div>
-          <p className="eyebrow">第二阶段</p>
-          <h2>文件下载功能先不急</h2>
-          <p>
-            等登录、数据和图片上传完成后，再把小软件放到 GitHub Releases，
-            网站这里只放下载按钮。
-          </p>
-        </div>
-      </section>
-    </>
-  );
-}
-
-function StylePreviewSection() {
-  return (
-    <section className="style-section" aria-label="风格预览">
-      <div className="section-heading">
-        <p className="eyebrow">当前风格</p>
-        <h2>清爽工具感 + 薄荷绿</h2>
+        <p className="auth-state">
+          {authReady ? (session ? `当前已登录：${session.user.email}` : '当前未登录') : '正在检查登录状态...'}
+        </p>
       </div>
 
-      <div className="style-grid">
-        {styleOptions.map((item) => (
-          <article className="style-card" key={item.name}>
-            <div className={`style-preview ${item.className}`}>
-              <div className="mock-nav"></div>
-              <div className="mock-hero"></div>
-              <div className="mock-layout">
-                <span></span>
-                <span></span>
-                <span></span>
-              </div>
-            </div>
-            <h3>{item.name}</h3>
-            <p>{item.note}</p>
-          </article>
-        ))}
-      </div>
-
-      <div className="section-heading compact-heading">
-        <p className="eyebrow">备选颜色</p>
-        <h2>手账感也可以不是粉色</h2>
-      </div>
-
-      <div className="color-grid">
-        {journalColors.map((item) => (
-          <article className="style-card" key={item.name}>
-            <div className={`style-preview journal-color ${item.className}`}>
-              <div className="mock-nav"></div>
-              <div className="mock-hero"></div>
-              <div className="mock-layout">
-                <span></span>
-                <span></span>
-                <span></span>
-              </div>
-            </div>
-            <h3>{item.name}</h3>
-            <p>{item.note}</p>
-          </article>
-        ))}
+      <div className="preview-panel" aria-label="笔记预览">
+        <div className="sample-photo">
+          <ImagePlus size={34} />
+        </div>
+        <div className="sample-note">
+          <span>今天的照片</span>
+          <h2>薄荷色的下午</h2>
+          <p>一张图片，一点文字，保存成只属于自己的小记录。</p>
+        </div>
       </div>
     </section>
-  );
-}
-
-function NotePreview() {
-  return (
-    <div className="preview-panel" aria-label="笔记预览">
-      <div className="image-placeholder">
-        <ImagePlus size={38} />
-        <strong>上传一张图片</strong>
-        <span>第一版先展示样子，后面再接真实上传</span>
-      </div>
-      <div className="note-lines">
-        <label htmlFor="demo-title">笔记标题</label>
-        <div id="demo-title" className="demo-input">
-          旅行照片记录
-        </div>
-        <label htmlFor="demo-content">笔记内容</label>
-        <div id="demo-content" className="demo-textarea">
-          今天先做页面空壳，后面再接真实数据。
-        </div>
-      </div>
-    </div>
   );
 }
 
@@ -365,10 +182,7 @@ function LoginPage({ onRegister, onDone }) {
     }
 
     setIsLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
     setIsLoading(false);
 
     if (error) {
@@ -376,15 +190,14 @@ function LoginPage({ onRegister, onDone }) {
       return;
     }
 
-    setMessage('登录成功。');
     onDone();
   }
 
   return (
     <section className="auth-page">
       <div className="auth-card">
-        <p className="eyebrow">登录页面</p>
-        <h1>进入我的图片笔记</h1>
+        <p className="eyebrow">登录</p>
+        <h1>进入图片笔记</h1>
         <form className="auth-form" onSubmit={handleSubmit}>
           <label htmlFor="login-email">邮箱</label>
           <input
@@ -434,10 +247,7 @@ function RegisterPage({ onLogin, onDone }) {
     }
 
     setIsLoading(true);
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-    });
+    const { data, error } = await supabase.auth.signUp({ email, password });
     setIsLoading(false);
 
     if (error) {
@@ -446,19 +256,18 @@ function RegisterPage({ onLogin, onDone }) {
     }
 
     if (data.session) {
-      setMessage('注册成功，已经登录。');
       onDone();
       return;
     }
 
-    setMessage('注册成功。请去邮箱里点确认邮件，然后回来登录。');
+    setMessage('注册成功。请去邮箱确认账号，然后回来登录。');
   }
 
   return (
     <section className="auth-page">
       <div className="auth-card">
-        <p className="eyebrow">注册页面</p>
-        <h1>创建一个测试账号</h1>
+        <p className="eyebrow">注册</p>
+        <h1>创建图片笔记账号</h1>
         <form className="auth-form" onSubmit={handleSubmit}>
           <label htmlFor="register-email">邮箱</label>
           <input
@@ -502,6 +311,7 @@ function NotesPage({ session, onLogin }) {
   const [message, setMessage] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(false);
   const [isSaving, setIsSaving] = React.useState(false);
+  const [deletingId, setDeletingId] = React.useState('');
 
   const loadNotes = React.useCallback(async () => {
     if (!session || !supabase) return;
@@ -561,6 +371,13 @@ function NotesPage({ session, onLogin }) {
     setImageFile(file);
   }
 
+  function clearSelectedImage() {
+    setImageFile(null);
+    setImagePreview('');
+    const input = document.getElementById('note-image');
+    if (input) input.value = '';
+  }
+
   async function uploadImage() {
     if (!imageFile || !session || !supabase) return '';
 
@@ -615,9 +432,27 @@ function NotesPage({ session, onLogin }) {
 
     setTitle('');
     setContent('');
-    setImageFile(null);
+    clearSelectedImage();
     setMessage('笔记已保存。');
     await loadNotes();
+  }
+
+  async function handleDeleteNote(note) {
+    if (!supabase) return;
+
+    setDeletingId(note.id);
+    setMessage('');
+
+    const { error } = await supabase.from('notes').delete().eq('id', note.id);
+    setDeletingId('');
+
+    if (error) {
+      setMessage(`删除失败：${error.message}`);
+      return;
+    }
+
+    setNotes((currentNotes) => currentNotes.filter((item) => item.id !== note.id));
+    setMessage('笔记已删除。');
   }
 
   if (!session) {
@@ -626,7 +461,7 @@ function NotesPage({ session, onLogin }) {
         <div className="auth-card">
           <p className="eyebrow">需要登录</p>
           <h1>先登录，再进入我的笔记</h1>
-          <p className="form-message">这里以后会显示当前用户自己的图片笔记。</p>
+          <p className="form-message">这里会显示当前用户自己的图片笔记。</p>
           <button className="primary-button large" onClick={onLogin}>
             <LogIn size={18} />
             去登录
@@ -638,25 +473,35 @@ function NotesPage({ session, onLogin }) {
 
   return (
     <section className="notes-page">
-      <div className="section-heading">
-        <p className="eyebrow">我的笔记页</p>
-        <h1>发布一条图片笔记</h1>
-        <p className="auth-state">当前用户：{session.user.email}</p>
+      <div className="section-heading page-heading">
+        <div>
+          <p className="eyebrow">我的笔记</p>
+          <h1>发布一条图片笔记</h1>
+          <p className="auth-state">当前用户：{session.user.email}</p>
+        </div>
+        <span className="note-count">{notes.length} 条笔记</span>
       </div>
 
       <div className="notes-layout">
         <form className="note-editor" onSubmit={handleCreateNote}>
-          <label className="upload-control" htmlFor="note-image">
-            {imagePreview ? (
-              <img src={imagePreview} alt="待上传预览" />
-            ) : (
-              <span className="upload-empty">
-                <ImagePlus size={34} />
-                <strong>选择一张图片</strong>
-                <small>JPG、PNG、WEBP、GIF，最大 5 MB</small>
-              </span>
+          <div className="upload-wrap">
+            <label className="upload-control" htmlFor="note-image">
+              {imagePreview ? (
+                <img src={imagePreview} alt="待上传预览" />
+              ) : (
+                <span className="upload-empty">
+                  <ImagePlus size={34} />
+                  <strong>选择一张图片</strong>
+                  <small>JPG、PNG、WEBP、GIF，最大 5 MB</small>
+                </span>
+              )}
+            </label>
+            {imagePreview && (
+              <button className="clear-image" type="button" onClick={clearSelectedImage} aria-label="清除图片">
+                <X size={16} />
+              </button>
             )}
-          </label>
+          </div>
           <input
             id="note-image"
             className="file-input"
@@ -693,18 +538,13 @@ function NotesPage({ session, onLogin }) {
         </form>
 
         <section className="notes-list" aria-label="我的笔记列表">
-          <div className="section-heading small-heading">
-            <p className="eyebrow">已保存</p>
-            <h2>我的笔记</h2>
-          </div>
-
           {isLoading && <p className="form-message">正在读取笔记...</p>}
 
           {!isLoading && notes.length === 0 && (
             <article className="empty-state">
               <Database size={22} />
               <h3>还没有笔记</h3>
-              <p>先在左边写一条，保存后会显示在这里。</p>
+              <p>先写一条，保存后会显示在这里。</p>
             </article>
           )}
 
@@ -712,9 +552,22 @@ function NotesPage({ session, onLogin }) {
             {notes.map((note) => (
               <article className="saved-note" key={note.id}>
                 {note.image_url && <img src={note.image_url} alt={note.title} />}
-                <h3>{note.title}</h3>
-                {note.content && <p>{note.content}</p>}
-                <span>{new Date(note.created_at).toLocaleString('zh-CN')}</span>
+                <div className="saved-note-body">
+                  <div className="saved-note-top">
+                    <h3>{note.title}</h3>
+                    <button
+                      className="delete-button"
+                      type="button"
+                      onClick={() => handleDeleteNote(note)}
+                      disabled={deletingId === note.id}
+                      aria-label="删除笔记"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                  {note.content && <p>{note.content}</p>}
+                  <span>{new Date(note.created_at).toLocaleString('zh-CN')}</span>
+                </div>
               </article>
             ))}
           </div>
