@@ -332,6 +332,13 @@ button {
   gap: 10px;
 }
 
+.form-actions,
+.item-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .form-stack label {
   color: #344054;
   font-size: 13px;
@@ -493,6 +500,10 @@ button {
   padding: 16px;
 }
 
+.edit-note-form {
+  gap: 9px;
+}
+
 .item-card.completed h3 {
   color: #98a2b3;
   text-decoration: line-through;
@@ -551,6 +562,26 @@ button {
 .delete-button:hover {
   background: #fff1f1;
   color: #b42318;
+}
+
+.small-action-button {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-radius: 8px;
+  padding: 0 10px;
+  background: #f8faf9;
+  color: #344054;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.small-action-button:hover {
+  background: #edf7f1;
+  color: #2f8f67;
 }
 
 .inline-controls {

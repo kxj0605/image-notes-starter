@@ -647,7 +647,29 @@ function NotesPanel({ session, notes, setNotes, setMessage }) {
   const [title, setTitle] = React.useState('');
   const [content, setContent] = React.useState('');
   const [visibility, setVisibility] = React.useState('private');
+  const [editingNoteId, setEditingNoteId] = React.useState(null);
+  const [editForm, setEditForm] = React.useState({ title: '', content: '', visibility: 'private' });
   const [isSaving, setIsSaving] = React.useState(false);
+  const [isUpdating, setIsUpdating] = React.useState(false);
+
+  function startEditNote(note) {
+    setEditingNoteId(note.id);
+    setEditForm({
+      title: note.title,
+      content: note.content ?? '',
+      visibility: note.visibility,
+    });
+    setMessage('');
+  }
+
+  function cancelEditNote() {
+    setEditingNoteId(null);
+    setEditForm({ title: '', content: '', visibility: 'private' });
+  }
+
+  function updateEditForm(key, value) {
+    setEditForm((currentForm) => ({ ...currentForm, [key]: value }));
+  }
 
   async function handleCreateNote(event) {
     event.preventDefault();
@@ -694,6 +716,38 @@ function NotesPanel({ session, notes, setNotes, setMessage }) {
     setMessage('笔记已删除。');
   }
 
+  async function handleUpdateNote(event, note) {
+    event.preventDefault();
+    setMessage('');
+
+    if (!editForm.title.trim() && !editForm.content.trim()) {
+      setMessage('标题和正文不能同时为空。');
+      return;
+    }
+
+    setIsUpdating(true);
+    const { data, error } = await supabase
+      .from('notes')
+      .update({
+        title: editForm.title.trim() || '未命名笔记',
+        content: editForm.content,
+        visibility: editForm.visibility,
+      })
+      .eq('id', note.id)
+      .select('id, user_id, title, content, visibility, created_at')
+      .single();
+    setIsUpdating(false);
+
+    if (error) {
+      setMessage(`更新笔记失败：${error.message}`);
+      return;
+    }
+
+    setNotes((currentNotes) => currentNotes.map((item) => (item.id === note.id ? data : item)));
+    cancelEditNote();
+    setMessage('笔记已更新。');
+  }
+
   return (
     <div className="two-column-layout">
       <form className="panel-card form-stack" onSubmit={handleCreateNote}>
@@ -724,17 +778,61 @@ function NotesPanel({ session, notes, setNotes, setMessage }) {
           <div className="card-list">
             {notes.map((note) => (
               <article className="item-card" key={note.id}>
-                <div className="item-top">
-                  <h3>{note.title}</h3>
-                  <button className="delete-button" onClick={() => handleDeleteNote(note)} aria-label="删除笔记">
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-                {note.content && <p>{note.content}</p>}
-                <div className="tag-row">
-                  <span className={note.visibility === 'public' ? 'tag public' : 'tag'}>{note.visibility === 'public' ? '公开' : '私密'}</span>
-                  <span>{new Date(note.created_at).toLocaleString('zh-CN')}</span>
-                </div>
+                {editingNoteId === note.id ? (
+                  <form className="form-stack edit-note-form" onSubmit={(event) => handleUpdateNote(event, note)}>
+                    <label htmlFor={`edit-note-title-${note.id}`}>标题</label>
+                    <input
+                      id={`edit-note-title-${note.id}`}
+                      value={editForm.title}
+                      onChange={(event) => updateEditForm('title', event.target.value)}
+                    />
+                    <label htmlFor={`edit-note-content-${note.id}`}>正文</label>
+                    <textarea
+                      id={`edit-note-content-${note.id}`}
+                      rows={5}
+                      value={editForm.content}
+                      onChange={(event) => updateEditForm('content', event.target.value)}
+                    />
+                    <label htmlFor={`edit-note-visibility-${note.id}`}>可见性</label>
+                    <select
+                      id={`edit-note-visibility-${note.id}`}
+                      value={editForm.visibility}
+                      onChange={(event) => updateEditForm('visibility', event.target.value)}
+                    >
+                      <option value="private">私密</option>
+                      <option value="public">公开</option>
+                    </select>
+                    <div className="form-actions">
+                      <button className="primary-button" type="submit" disabled={isUpdating}>
+                        <Pencil size={16} />
+                        {isUpdating ? '保存中...' : '保存修改'}
+                      </button>
+                      <button className="text-button" type="button" onClick={cancelEditNote} disabled={isUpdating}>
+                        取消
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <>
+                    <div className="item-top">
+                      <h3>{note.title}</h3>
+                      <div className="item-actions">
+                        <button className="small-action-button" onClick={() => startEditNote(note)} aria-label="编辑笔记">
+                          <Pencil size={15} />
+                          编辑
+                        </button>
+                        <button className="delete-button" onClick={() => handleDeleteNote(note)} aria-label="删除笔记">
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </div>
+                    {note.content && <p>{note.content}</p>}
+                    <div className="tag-row">
+                      <span className={note.visibility === 'public' ? 'tag public' : 'tag'}>{note.visibility === 'public' ? '公开' : '私密'}</span>
+                      <span>{new Date(note.created_at).toLocaleString('zh-CN')}</span>
+                    </div>
+                  </>
+                )}
               </article>
             ))}
           </div>
