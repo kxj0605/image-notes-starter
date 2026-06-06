@@ -180,10 +180,11 @@ button {
   margin-top: 22px;
 }
 
-.workspace-privacy {
-  display: flex;
-  max-width: none;
-  margin-bottom: 16px;
+.header-privacy {
+  max-width: 620px;
+  margin-top: 12px;
+  padding: 9px 12px;
+  box-shadow: none;
 }
 
 .tool-preview,

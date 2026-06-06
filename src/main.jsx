@@ -512,17 +512,16 @@ function WorkspacePage({ session, profile, initialTab, onProfileChange, onLogin 
           <p className="eyebrow">工作台</p>
           <h1>你好，{profile?.nickname ?? session.user.email}</h1>
           <p className="auth-state">今日 {todayTasks.length} 项，未完成 {unfinishedTasks.length} 项</p>
+          <div className="privacy-note header-privacy">
+            <ShieldCheck size={18} />
+            <span>私人工作台：任务和私密笔记只对你可见，只有公开笔记会出现在公开笔记页。</span>
+          </div>
         </div>
         <div className="metric-row">
           <Metric label="笔记" value={notes.length} />
           <Metric label="任务" value={tasks.length} />
           <Metric label="公开笔记" value={notes.filter((note) => note.visibility === 'public').length} />
         </div>
-      </div>
-
-      <div className="privacy-note workspace-privacy">
-        <ShieldCheck size={18} />
-        <span>工作台是你的私人空间：任务和私密笔记只对你可见，只有标记为公开的笔记会出现在公开笔记页。</span>
       </div>
 
       <div className="tab-bar">
