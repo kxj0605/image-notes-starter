@@ -80,6 +80,7 @@ function getLabel(options, value) {
 
 function App() {
   const [currentPage, setCurrentPage] = React.useState(pages.home);
+  const [workspaceTab, setWorkspaceTab] = React.useState(tabs.dashboard);
   const [session, setSession] = React.useState(null);
   const [profile, setProfile] = React.useState(null);
   const [authReady, setAuthReady] = React.useState(false);
@@ -160,7 +161,13 @@ function App() {
 
           {session ? (
             <>
-              <button className="text-button user-pill" onClick={() => setCurrentPage(pages.workspace)}>
+              <button
+                className="text-button user-pill"
+                onClick={() => {
+                  setWorkspaceTab(tabs.profile);
+                  setCurrentPage(pages.workspace);
+                }}
+              >
                 {profile?.nickname ?? session.user.email}
               </button>
               <button className="primary-button" onClick={handleSignOut}>
@@ -189,21 +196,37 @@ function App() {
           session={session}
           onLogin={() => setCurrentPage(pages.login)}
           onRegister={() => setCurrentPage(pages.register)}
-          onWorkspace={() => setCurrentPage(pages.workspace)}
+          onWorkspace={() => {
+            setWorkspaceTab(tabs.dashboard);
+            setCurrentPage(pages.workspace);
+          }}
           onPublicNotes={() => setCurrentPage(pages.publicNotes)}
         />
       )}
       {currentPage === pages.login && (
-        <LoginPage onRegister={() => setCurrentPage(pages.register)} onDone={() => setCurrentPage(pages.workspace)} />
+        <LoginPage
+          onRegister={() => setCurrentPage(pages.register)}
+          onDone={() => {
+            setWorkspaceTab(tabs.dashboard);
+            setCurrentPage(pages.workspace);
+          }}
+        />
       )}
       {currentPage === pages.register && (
-        <RegisterPage onLogin={() => setCurrentPage(pages.login)} onDone={() => setCurrentPage(pages.workspace)} />
+        <RegisterPage
+          onLogin={() => setCurrentPage(pages.login)}
+          onDone={() => {
+            setWorkspaceTab(tabs.dashboard);
+            setCurrentPage(pages.workspace);
+          }}
+        />
       )}
       {currentPage === pages.publicNotes && <PublicNotesPage />}
       {currentPage === pages.workspace && (
         <WorkspacePage
           session={session}
           profile={profile}
+          initialTab={workspaceTab}
           onProfileChange={setProfile}
           onLogin={() => setCurrentPage(pages.login)}
         />
@@ -414,8 +437,8 @@ function RegisterPage({ onLogin, onDone }) {
   );
 }
 
-function WorkspacePage({ session, profile, onProfileChange, onLogin }) {
-  const [activeTab, setActiveTab] = React.useState(tabs.dashboard);
+function WorkspacePage({ session, profile, initialTab, onProfileChange, onLogin }) {
+  const [activeTab, setActiveTab] = React.useState(initialTab);
   const [notes, setNotes] = React.useState([]);
   const [tasks, setTasks] = React.useState([]);
   const [message, setMessage] = React.useState('');
@@ -441,6 +464,10 @@ function WorkspacePage({ session, profile, onProfileChange, onLogin }) {
     setNotes(noteData ?? []);
     setTasks(taskData ?? []);
   }, [session]);
+
+  React.useEffect(() => {
+    setActiveTab(initialTab);
+  }, [initialTab]);
 
   React.useEffect(() => {
     loadData();
@@ -487,7 +514,6 @@ function WorkspacePage({ session, profile, onProfileChange, onLogin }) {
         <TabButton icon={ListTodo} label="任务" value={tabs.tasks} activeTab={activeTab} onClick={setActiveTab} />
         <TabButton icon={CalendarDays} label="日历" value={tabs.calendar} activeTab={activeTab} onClick={setActiveTab} />
         <TabButton icon={Database} label="四象限" value={tabs.matrix} activeTab={activeTab} onClick={setActiveTab} />
-        <TabButton icon={Pencil} label="昵称" value={tabs.profile} activeTab={activeTab} onClick={setActiveTab} />
       </div>
 
       {message && <p className="form-message global-message">{message}</p>}
@@ -1014,7 +1040,7 @@ function ProfilePanel({ session, profile, onProfileChange, setMessage }) {
 
   return (
     <section className="panel-card profile-panel">
-      <h2>个人昵称</h2>
+      <h2>个人设置</h2>
       <p className="muted-text">公开笔记会显示昵称，不显示完整邮箱。</p>
       <form className="form-stack" onSubmit={handleSave}>
         <label htmlFor="nickname">昵称</label>
