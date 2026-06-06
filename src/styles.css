@@ -464,8 +464,13 @@ button {
   gap: 12px;
 }
 
+.panel-heading-row {
+  margin-bottom: 14px;
+}
+
 .panel-heading-row h2 {
   flex-shrink: 0;
+  margin-bottom: 0;
   white-space: nowrap;
 }
 
