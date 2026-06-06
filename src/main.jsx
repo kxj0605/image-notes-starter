@@ -257,15 +257,15 @@ function HomePage({ authReady, session, onLogin, onRegister, onWorkspace, onPubl
   return (
     <section className="home-grid">
       <div className="hero-copy">
-        <p className="eyebrow">个人记录与任务管理工具</p>
-        <h1>把笔记、任务和日程放在同一个地方</h1>
+        <p className="eyebrow">私人工作台与公开分享</p>
+        <h1>管理任务提醒，也记录可以分享的想法</h1>
         <p className="hero-text">
-          写下想法，安排每天要做的事；任务可以按四象限管理，笔记可以私密保存或公开分享。
+          在私人工作台安排任务、查看逾期提醒、记录私密笔记；也可以把想法公开成笔记，让别人阅读和评论。
         </p>
 
         <div className="privacy-note">
           <ShieldCheck size={18} />
-          <span>私密笔记和任务只有你自己能看到，公开笔记会显示在公开笔记页。</span>
+          <span>任务和私密笔记仅自己可见，只有公开笔记会出现在公开笔记页。</span>
         </div>
 
         <div className="hero-actions">
@@ -290,9 +290,9 @@ function HomePage({ authReady, session, onLogin, onRegister, onWorkspace, onPubl
 
       <div className="tool-preview" aria-label="工具预览">
         <div className="preview-card note-preview">
-          <span className="tag">私密</span>
-          <h2>今天的想法</h2>
-          <p>把资料、灵感和日常记录在一个地方。</p>
+          <span className="tag">私人工作台</span>
+          <h2>今天 3 项，已逾期 1 项</h2>
+          <p>把要做的事按日期、状态和重要紧急程度排好。</p>
         </div>
         <div className="mini-calendar">
           {['一', '二', '三', '四', '五', '六', '日'].map((day) => (
@@ -307,12 +307,22 @@ function HomePage({ authReady, session, onLogin, onRegister, onWorkspace, onPubl
           ))}
         </div>
         <div className="matrix-preview">
-          {matrixOptions.map((item) => (
-            <div key={item.value}>
-              <strong>{item.label}</strong>
-              <span>{item.hint}</span>
-            </div>
-          ))}
+          <div>
+            <strong>公开笔记</strong>
+            <span>把想法公开分享给其他人阅读。</span>
+          </div>
+          <div>
+            <strong>评论区</strong>
+            <span>登录后可以评论，也能编辑和删除自己的评论。</span>
+          </div>
+          <div>
+            <strong>四象限</strong>
+            <span>用重要紧急程度快速判断优先级。</span>
+          </div>
+          <div>
+            <strong>日历视图</strong>
+            <span>按日期查看每天安排了哪些任务。</span>
+          </div>
         </div>
       </div>
     </section>
