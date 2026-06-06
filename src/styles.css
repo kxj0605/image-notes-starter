@@ -180,6 +180,12 @@ button {
   margin-top: 22px;
 }
 
+.workspace-privacy {
+  display: flex;
+  max-width: none;
+  margin-bottom: 16px;
+}
+
 .tool-preview,
 .panel-card,
 .auth-card,
@@ -356,11 +362,16 @@ button {
 }
 
 .form-message,
-.global-message {
+.global-message,
+.field-help {
   margin: 14px 0 0;
   color: #475467;
   font-size: 14px;
   line-height: 1.7;
+}
+
+.field-help {
+  margin: -2px 0 4px;
 }
 
 .workspace-heading {

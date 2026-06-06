@@ -520,6 +520,11 @@ function WorkspacePage({ session, profile, initialTab, onProfileChange, onLogin 
         </div>
       </div>
 
+      <div className="privacy-note workspace-privacy">
+        <ShieldCheck size={18} />
+        <span>工作台是你的私人空间：任务和私密笔记只对你可见，只有标记为公开的笔记会出现在公开笔记页。</span>
+      </div>
+
       <div className="tab-bar">
         <TabButton icon={LayoutDashboard} label="仪表盘" value={tabs.dashboard} activeTab={activeTab} onClick={setActiveTab} />
         <TabButton icon={NotebookPen} label="笔记" value={tabs.notes} activeTab={activeTab} onClick={setActiveTab} />
@@ -702,6 +707,9 @@ function NotesPanel({ session, notes, setNotes, setMessage }) {
           <option value="private">私密</option>
           <option value="public">公开</option>
         </select>
+        <p className="field-help">
+          私密笔记只在你的工作台显示；公开笔记会显示在公开笔记页，别人也能看到。
+        </p>
         <button className="primary-button large" disabled={isSaving}>
           <Plus size={18} />
           {isSaving ? '保存中...' : '保存笔记'}
