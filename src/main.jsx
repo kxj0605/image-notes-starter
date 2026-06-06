@@ -154,7 +154,7 @@ function App() {
                 setCurrentPage(pages.workspace);
               }}
             >
-              返回工作台
+              返回私人工作台
             </button>
           ) : (
             <button className="text-button" onClick={() => setCurrentPage(pages.publicNotes)}>
