@@ -1376,7 +1376,25 @@ function ProfilePanel({ session, profile, onProfileChange, setMessage }) {
   return (
     <section className="panel-card profile-panel">
       <h2>个人设置</h2>
-      <p className="muted-text">公开笔记会显示昵称，不显示完整邮箱。</p>
+      <div className="profile-summary">
+        <div>
+          <span>当前邮箱</span>
+          <strong>{session.user.email}</strong>
+        </div>
+        <div>
+          <span>当前昵称</span>
+          <strong>{profile?.nickname ?? '还没有昵称'}</strong>
+        </div>
+        <div>
+          <span>公开显示</span>
+          <strong>公开笔记和评论会显示昵称</strong>
+        </div>
+        <div>
+          <span>隐私说明</span>
+          <strong>私人工作台内容仅自己可见</strong>
+        </div>
+      </div>
+      <p className="muted-text">修改昵称后，公开笔记和评论里会显示新的昵称，不显示完整邮箱。</p>
       <form className="form-stack" onSubmit={handleSave}>
         <label htmlFor="nickname">昵称</label>
         <input id="nickname" value={nickname} onChange={(event) => setNickname(event.target.value)} />
