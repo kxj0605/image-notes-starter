@@ -910,6 +910,28 @@ function TasksPanel({ session, tasks, setTasks, setMessage }) {
         />
         <div className="form-grid">
           <label>
+            重要紧急程度
+            <select id="task-matrix" value={form.matrix_category} onChange={(event) => updateForm('matrix_category', event.target.value)}>
+              {matrixOptions.map((option) => (
+                <option value={option.value} key={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            进展状态
+            <select id="task-status" value={form.status} onChange={(event) => updateForm('status', event.target.value)}>
+              {statusOptions.map((option) => (
+                <option value={option.value} key={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <div className="form-grid">
+          <label>
             日期
             <input type="date" value={form.task_date} onChange={(event) => updateForm('task_date', event.target.value)} required />
           </label>
@@ -918,22 +940,6 @@ function TasksPanel({ session, tasks, setTasks, setMessage }) {
             <input type="time" value={form.task_time} onChange={(event) => updateForm('task_time', event.target.value)} />
           </label>
         </div>
-        <label htmlFor="task-matrix">重要紧急程度</label>
-        <select id="task-matrix" value={form.matrix_category} onChange={(event) => updateForm('matrix_category', event.target.value)}>
-          {matrixOptions.map((option) => (
-            <option value={option.value} key={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-        <label htmlFor="task-status">进展状态</label>
-        <select id="task-status" value={form.status} onChange={(event) => updateForm('status', event.target.value)}>
-          {statusOptions.map((option) => (
-            <option value={option.value} key={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
         <button className="primary-button large" disabled={isSaving}>
           <Plus size={18} />
           {isSaving ? '保存中...' : '保存任务'}
@@ -1097,6 +1103,36 @@ function TaskCard({ task, setTasks, setMessage, compact = false }) {
           />
           <div className="form-grid">
             <label>
+              重要紧急程度
+              <select
+                id={`edit-task-matrix-${task.id}`}
+                value={editForm.matrix_category}
+                onChange={(event) => updateEditForm('matrix_category', event.target.value)}
+              >
+                {matrixOptions.map((option) => (
+                  <option value={option.value} key={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              进展状态
+              <select
+                id={`edit-task-status-${task.id}`}
+                value={editForm.status}
+                onChange={(event) => updateEditForm('status', event.target.value)}
+              >
+                {statusOptions.map((option) => (
+                  <option value={option.value} key={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <div className="form-grid">
+            <label>
               日期
               <input
                 type="date"
@@ -1110,30 +1146,6 @@ function TaskCard({ task, setTasks, setMessage, compact = false }) {
               <input type="time" value={editForm.task_time} onChange={(event) => updateEditForm('task_time', event.target.value)} />
             </label>
           </div>
-          <label htmlFor={`edit-task-matrix-${task.id}`}>重要紧急程度</label>
-          <select
-            id={`edit-task-matrix-${task.id}`}
-            value={editForm.matrix_category}
-            onChange={(event) => updateEditForm('matrix_category', event.target.value)}
-          >
-            {matrixOptions.map((option) => (
-              <option value={option.value} key={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-          <label htmlFor={`edit-task-status-${task.id}`}>进展状态</label>
-          <select
-            id={`edit-task-status-${task.id}`}
-            value={editForm.status}
-            onChange={(event) => updateEditForm('status', event.target.value)}
-          >
-            {statusOptions.map((option) => (
-              <option value={option.value} key={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
           <div className="form-actions">
             <button className="primary-button" type="submit" disabled={isUpdating}>
               <Pencil size={16} />
