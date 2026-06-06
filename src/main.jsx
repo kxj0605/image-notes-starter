@@ -127,6 +127,11 @@ function HomePage({ authReady, session, onLogin, onRegister, onOpenNotes }) {
         <h1>把照片和想法收进自己的笔记里</h1>
         <p className="hero-text">登录后可以保存图片笔记，每个账号只看到自己的内容。</p>
 
+        <div className="privacy-note">
+          <Database size={18} />
+          <span>你的笔记不是公开内容，登录后只有你自己可以看到。</span>
+        </div>
+
         <div className="hero-actions">
           {session ? (
             <button className="primary-button large" onClick={onOpenNotes}>
