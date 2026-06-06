@@ -1508,6 +1508,35 @@ function PublicNotesPage({ session, profile, onLogin }) {
     setMessage('评论已删除。');
   }
 
+  async function handleUpdateComment(noteId, commentId, content) {
+    setMessage('');
+
+    const text = content.trim();
+    if (!text) {
+      setMessage('评论内容不能为空。');
+      return false;
+    }
+
+    const { data, error } = await supabase
+      .from('comments')
+      .update({ content: text })
+      .eq('id', commentId)
+      .select('id, note_id, user_id, content, created_at')
+      .single();
+
+    if (error) {
+      setMessage(`更新评论失败：${error.message}`);
+      return false;
+    }
+
+    setCommentsByNote((currentComments) => ({
+      ...currentComments,
+      [noteId]: (currentComments[noteId] ?? []).map((comment) => (comment.id === commentId ? data : comment)),
+    }));
+    setMessage('评论已更新。');
+    return true;
+  }
+
   return (
     <section className="public-page">
       <div className="section-heading">
@@ -1537,6 +1566,7 @@ function PublicNotesPage({ session, profile, onLogin }) {
                 onLogin={onLogin}
                 onCreateComment={(content, clearComment) => handleCreateComment(note.id, content, clearComment)}
                 onDeleteComment={(commentId) => handleDeleteComment(note.id, commentId)}
+                onUpdateComment={(commentId, content) => handleUpdateComment(note.id, commentId, content)}
               />
             </article>
           ))}
@@ -1546,9 +1576,12 @@ function PublicNotesPage({ session, profile, onLogin }) {
   );
 }
 
-function CommentsSection({ comments, commentsEnabled, profiles, session, onLogin, onCreateComment, onDeleteComment }) {
+function CommentsSection({ comments, commentsEnabled, profiles, session, onLogin, onCreateComment, onDeleteComment, onUpdateComment }) {
   const [draft, setDraft] = React.useState('');
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [editingCommentId, setEditingCommentId] = React.useState(null);
+  const [editDraft, setEditDraft] = React.useState('');
+  const [updatingCommentId, setUpdatingCommentId] = React.useState(null);
   const [confirmingDeleteCommentId, setConfirmingDeleteCommentId] = React.useState(null);
   const [deletingCommentId, setDeletingCommentId] = React.useState(null);
 
@@ -1564,6 +1597,23 @@ function CommentsSection({ comments, commentsEnabled, profiles, session, onLogin
     await onDeleteComment(commentId);
     setDeletingCommentId(null);
     setConfirmingDeleteCommentId(null);
+  }
+
+  function startEditComment(comment) {
+    setEditingCommentId(comment.id);
+    setEditDraft(comment.content);
+    setConfirmingDeleteCommentId(null);
+  }
+
+  async function handleUpdateComment(event, commentId) {
+    event.preventDefault();
+    setUpdatingCommentId(commentId);
+    const didUpdate = await onUpdateComment(commentId, editDraft);
+    setUpdatingCommentId(null);
+    if (didUpdate) {
+      setEditingCommentId(null);
+      setEditDraft('');
+    }
   }
 
   return (
@@ -1602,18 +1652,42 @@ function CommentsSection({ comments, commentsEnabled, profiles, session, onLogin
                       </button>
                     </div>
                   ) : (
-                    <button
-                      className="delete-button comment-delete-button"
-                      onClick={() => setConfirmingDeleteCommentId(comment.id)}
-                      aria-label="删除评论"
-                      title="删除评论"
-                    >
-                      <Trash2 size={14} />
-                    </button>
+                    <div className="comment-actions">
+                      <button className="small-action-button comment-icon-button" onClick={() => startEditComment(comment)} aria-label="编辑评论" title="编辑评论">
+                        <Pencil size={14} />
+                      </button>
+                      <button
+                        className="delete-button comment-delete-button"
+                        onClick={() => setConfirmingDeleteCommentId(comment.id)}
+                        aria-label="删除评论"
+                        title="删除评论"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
                   )
                 )}
               </div>
-              <p>{comment.content}</p>
+              {editingCommentId === comment.id ? (
+                <form className="comment-form comment-edit-form" onSubmit={(event) => handleUpdateComment(event, comment.id)}>
+                  <textarea
+                    rows={2}
+                    value={editDraft}
+                    maxLength={500}
+                    onChange={(event) => setEditDraft(event.target.value)}
+                  />
+                  <div className="form-actions">
+                    <button className="primary-button" type="submit" disabled={updatingCommentId === comment.id || !editDraft.trim()}>
+                      {updatingCommentId === comment.id ? '保存中...' : '保存修改'}
+                    </button>
+                    <button className="text-button" type="button" onClick={() => setEditingCommentId(null)} disabled={updatingCommentId === comment.id}>
+                      取消
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <p>{comment.content}</p>
+              )}
             </div>
           ))}
         </div>

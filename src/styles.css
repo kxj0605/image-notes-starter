@@ -888,6 +888,16 @@ button {
   min-height: 30px;
 }
 
+.comment-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.comment-icon-button {
+  width: 30px;
+  min-height: 30px;
+}
+
 .comment-confirm-delete {
   margin-left: auto;
 }
@@ -902,6 +912,10 @@ button {
 .comment-form {
   display: grid;
   gap: 8px;
+}
+
+.comment-edit-form {
+  margin-top: 8px;
 }
 
 .comment-form textarea {

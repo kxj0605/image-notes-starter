@@ -40,4 +40,11 @@ on comments for delete
 to authenticated
 using (auth.uid() = user_id);
 
+drop policy if exists "Users can update their own comments" on comments;
+create policy "Users can update their own comments"
+on comments for update
+to authenticated
+using (auth.uid() = user_id)
+with check (auth.uid() = user_id);
+
 notify pgrst, 'reload schema';
