@@ -360,7 +360,8 @@ function LoginPage({ onRegister, onDone }) {
     <section className="auth-page">
       <div className="auth-card">
         <p className="eyebrow">登录</p>
-        <h1>登录日程笔记</h1>
+        <h1>进入私人工作台</h1>
+        <p className="muted-text">登录后可以继续管理任务、私密笔记、公开笔记和评论。</p>
         <form className="form-stack" onSubmit={handleSubmit}>
           <label htmlFor="login-email">邮箱</label>
           <input
@@ -430,7 +431,8 @@ function RegisterPage({ onLogin, onDone }) {
     <section className="auth-page">
       <div className="auth-card">
         <p className="eyebrow">注册</p>
-        <h1>创建账号</h1>
+        <h1>创建你的私人工作台</h1>
+        <p className="muted-text">账号会保存你的任务、笔记、昵称和公开评论记录。</p>
         <form className="form-stack" onSubmit={handleSubmit}>
           <label htmlFor="register-email">邮箱</label>
           <input
