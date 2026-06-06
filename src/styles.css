@@ -500,7 +500,8 @@ button {
   padding: 16px;
 }
 
-.edit-note-form {
+.edit-note-form,
+.edit-task-form {
   gap: 9px;
 }
 

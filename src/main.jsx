@@ -970,6 +970,46 @@ function TaskList({ tasks, setTasks, setMessage }) {
 }
 
 function TaskCard({ task, setTasks, setMessage, compact = false }) {
+  const [isEditing, setIsEditing] = React.useState(false);
+  const [editForm, setEditForm] = React.useState({
+    title: task.title,
+    description: task.description ?? '',
+    task_date: task.task_date,
+    task_time: task.task_time ?? '',
+    matrix_category: task.matrix_category,
+    status: task.status,
+  });
+  const [isUpdating, setIsUpdating] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!isEditing) {
+      setEditForm({
+        title: task.title,
+        description: task.description ?? '',
+        task_date: task.task_date,
+        task_time: task.task_time ?? '',
+        matrix_category: task.matrix_category,
+        status: task.status,
+      });
+    }
+  }, [isEditing, task]);
+
+  function updateEditForm(key, value) {
+    setEditForm((currentForm) => ({ ...currentForm, [key]: value }));
+  }
+
+  function cancelEditTask() {
+    setIsEditing(false);
+    setEditForm({
+      title: task.title,
+      description: task.description ?? '',
+      task_date: task.task_date,
+      task_time: task.task_time ?? '',
+      matrix_category: task.matrix_category,
+      status: task.status,
+    });
+  }
+
   async function handleStatusChange(status) {
     await updateTaskStatus(task, status, setTasks, setMessage);
   }
@@ -997,39 +1037,148 @@ function TaskCard({ task, setTasks, setMessage, compact = false }) {
     setMessage?.('任务已删除。');
   }
 
+  async function handleUpdateTask(event) {
+    event.preventDefault();
+    setMessage?.('');
+
+    if (!editForm.title.trim()) {
+      setMessage?.('任务标题不能为空。');
+      return;
+    }
+
+    setIsUpdating(true);
+    const { data, error } = await supabase
+      .from('tasks')
+      .update({
+        ...editForm,
+        title: editForm.title.trim(),
+        task_time: editForm.task_time || null,
+      })
+      .eq('id', task.id)
+      .select('*')
+      .single();
+    setIsUpdating(false);
+
+    if (error) {
+      setMessage?.(`更新任务失败：${error.message}`);
+      return;
+    }
+
+    setTasks?.((currentTasks) =>
+      currentTasks.map((item) => (item.id === task.id ? data : item)).sort(sortTasks),
+    );
+    setIsEditing(false);
+    setMessage?.('任务已更新。');
+  }
+
   return (
     <article className={task.status === 'completed' ? 'item-card completed' : 'item-card'}>
-      <div className="item-top">
-        <h3>{task.title}</h3>
-        {!compact && (
-          <button className="delete-button" onClick={handleDeleteTask} aria-label="删除任务">
-            <Trash2 size={16} />
-          </button>
-        )}
-      </div>
-      {task.description && <p>{task.description}</p>}
-      <div className="tag-row">
-        <span className="tag">{formatDate(task.task_date)} {formatTime(task.task_time)}</span>
-        <span className="tag">{getLabel(matrixOptions, task.matrix_category)}</span>
-        <span className={`tag status-${task.status}`}>{getLabel(statusOptions, task.status)}</span>
-      </div>
-      {!compact && (
-        <div className="inline-controls">
-          <select value={task.status} onChange={(event) => handleStatusChange(event.target.value)}>
-            {statusOptions.map((option) => (
-              <option value={option.value} key={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-          <select value={task.matrix_category} onChange={(event) => handleMatrixChange(event.target.value)}>
+      {isEditing ? (
+        <form className="form-stack edit-task-form" onSubmit={handleUpdateTask}>
+          <label htmlFor={`edit-task-title-${task.id}`}>任务标题</label>
+          <input
+            id={`edit-task-title-${task.id}`}
+            value={editForm.title}
+            onChange={(event) => updateEditForm('title', event.target.value)}
+            required
+          />
+          <label htmlFor={`edit-task-description-${task.id}`}>备注</label>
+          <textarea
+            id={`edit-task-description-${task.id}`}
+            rows={4}
+            value={editForm.description}
+            onChange={(event) => updateEditForm('description', event.target.value)}
+          />
+          <div className="form-grid">
+            <label>
+              日期
+              <input
+                type="date"
+                value={editForm.task_date}
+                onChange={(event) => updateEditForm('task_date', event.target.value)}
+                required
+              />
+            </label>
+            <label>
+              时间
+              <input type="time" value={editForm.task_time} onChange={(event) => updateEditForm('task_time', event.target.value)} />
+            </label>
+          </div>
+          <label htmlFor={`edit-task-matrix-${task.id}`}>重要紧急程度</label>
+          <select
+            id={`edit-task-matrix-${task.id}`}
+            value={editForm.matrix_category}
+            onChange={(event) => updateEditForm('matrix_category', event.target.value)}
+          >
             {matrixOptions.map((option) => (
               <option value={option.value} key={option.value}>
                 {option.label}
               </option>
             ))}
           </select>
-        </div>
+          <label htmlFor={`edit-task-status-${task.id}`}>进展状态</label>
+          <select
+            id={`edit-task-status-${task.id}`}
+            value={editForm.status}
+            onChange={(event) => updateEditForm('status', event.target.value)}
+          >
+            {statusOptions.map((option) => (
+              <option value={option.value} key={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          <div className="form-actions">
+            <button className="primary-button" type="submit" disabled={isUpdating}>
+              <Pencil size={16} />
+              {isUpdating ? '保存中...' : '保存修改'}
+            </button>
+            <button className="text-button" type="button" onClick={cancelEditTask} disabled={isUpdating}>
+              取消
+            </button>
+          </div>
+        </form>
+      ) : (
+        <>
+          <div className="item-top">
+            <h3>{task.title}</h3>
+            {!compact && (
+              <div className="item-actions">
+                <button className="small-action-button" onClick={() => setIsEditing(true)} aria-label="编辑任务">
+                  <Pencil size={15} />
+                  编辑
+                </button>
+                <button className="delete-button" onClick={handleDeleteTask} aria-label="删除任务">
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            )}
+          </div>
+          {task.description && <p>{task.description}</p>}
+          <div className="tag-row">
+            <span className="tag">{formatDate(task.task_date)} {formatTime(task.task_time)}</span>
+            <span className="tag">{getLabel(matrixOptions, task.matrix_category)}</span>
+            <span className={`tag status-${task.status}`}>{getLabel(statusOptions, task.status)}</span>
+          </div>
+          {!compact && (
+            <div className="inline-controls">
+              <select value={task.status} onChange={(event) => handleStatusChange(event.target.value)}>
+                {statusOptions.map((option) => (
+                  <option value={option.value} key={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <select value={task.matrix_category} onChange={(event) => handleMatrixChange(event.target.value)}>
+                {matrixOptions.map((option) => (
+                  <option value={option.value} key={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+        </>
       )}
     </article>
   );
