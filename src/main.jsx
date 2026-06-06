@@ -817,9 +817,8 @@ function NotesPanel({ session, notes, setNotes, setMessage }) {
                     <div className="item-top">
                       <h3>{note.title}</h3>
                       <div className="item-actions">
-                        <button className="small-action-button" onClick={() => startEditNote(note)} aria-label="编辑笔记">
+                        <button className="small-action-button" onClick={() => startEditNote(note)} aria-label="编辑笔记" title="编辑笔记">
                           <Pencil size={15} />
-                          编辑
                         </button>
                         <button className="delete-button" onClick={() => handleDeleteNote(note)} aria-label="删除笔记">
                           <Trash2 size={16} />
@@ -1144,9 +1143,8 @@ function TaskCard({ task, setTasks, setMessage, compact = false }) {
             <h3>{task.title}</h3>
             {!compact && (
               <div className="item-actions">
-                <button className="small-action-button" onClick={() => setIsEditing(true)} aria-label="编辑任务">
+                <button className="small-action-button" onClick={() => setIsEditing(true)} aria-label="编辑任务" title="编辑任务">
                   <Pencil size={15} />
-                  编辑
                 </button>
                 <button className="delete-button" onClick={handleDeleteTask} aria-label="删除任务">
                   <Trash2 size={16} />

@@ -566,18 +566,16 @@ button {
 }
 
 .small-action-button {
-  display: inline-flex;
+  display: grid;
+  width: 34px;
   min-height: 34px;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
+  flex-shrink: 0;
+  place-items: center;
   border-radius: 8px;
-  padding: 0 10px;
+  padding: 0;
   background: #f8faf9;
   color: #344054;
   cursor: pointer;
-  font-size: 13px;
-  font-weight: 800;
 }
 
 .small-action-button:hover {
