@@ -464,6 +464,15 @@ button {
   gap: 12px;
 }
 
+.panel-heading-row h2 {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.panel-heading-row select {
+  min-width: 0;
+}
+
 .form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
