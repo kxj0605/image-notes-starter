@@ -187,6 +187,23 @@ button {
   gap: 8px 14px;
 }
 
+.workspace-private-label {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.workspace-private-title {
+  color: #2f8f67;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.workspace-private-desc {
+  color: #667085;
+  font-size: 12px;
+  font-weight: 600;
+}
+
 .tool-preview,
 .panel-card,
 .auth-card,
