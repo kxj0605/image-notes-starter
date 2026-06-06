@@ -180,29 +180,11 @@ button {
   margin-top: 22px;
 }
 
-.workspace-kicker,
-.private-workspace-note {
+.workspace-kicker {
   display: flex;
   align-items: center;
-}
-
-.workspace-kicker {
   flex-wrap: wrap;
   gap: 8px 14px;
-}
-
-.private-workspace-note {
-  margin: 0;
-  gap: 5px;
-  color: #667085;
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1.5;
-}
-
-.private-workspace-note svg {
-  flex-shrink: 0;
-  color: #2f8f67;
 }
 
 .tool-preview,

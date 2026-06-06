@@ -510,11 +510,7 @@ function WorkspacePage({ session, profile, initialTab, onProfileChange, onLogin 
       <div className="workspace-heading">
         <div>
           <div className="workspace-kicker">
-            <p className="eyebrow">私人工作台</p>
-            <p className="private-workspace-note">
-              <ShieldCheck size={14} />
-              <span>私密内容仅自己可见，公开笔记会对外展示。</span>
-            </p>
+            <p className="eyebrow">私人工作台：仅自己可见，只有公开笔记是对外展示。</p>
           </div>
           <h1>你好，{profile?.nickname ?? session.user.email}</h1>
           <p className="auth-state">今日 {todayTasks.length} 项，未完成 {unfinishedTasks.length} 项</p>
