@@ -509,13 +509,15 @@ function WorkspacePage({ session, profile, initialTab, onProfileChange, onLogin 
     <section className="workspace-page">
       <div className="workspace-heading">
         <div>
-          <p className="eyebrow">工作台</p>
+          <div className="workspace-kicker">
+            <p className="eyebrow">工作台</p>
+            <p className="private-workspace-note">
+              <ShieldCheck size={14} />
+              <span>私人工作台：任务和私密笔记只对你可见，只有公开笔记会出现在公开笔记页。</span>
+            </p>
+          </div>
           <h1>你好，{profile?.nickname ?? session.user.email}</h1>
           <p className="auth-state">今日 {todayTasks.length} 项，未完成 {unfinishedTasks.length} 项</p>
-          <div className="privacy-note header-privacy">
-            <ShieldCheck size={18} />
-            <span>私人工作台：任务和私密笔记只对你可见，只有公开笔记会出现在公开笔记页。</span>
-          </div>
         </div>
         <div className="metric-row">
           <Metric label="笔记" value={notes.length} />
