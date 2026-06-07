@@ -887,6 +887,7 @@ function TasksPanel({ session, tasks, setTasks, setMessage }) {
     status: 'not_started',
   });
   const [filter, setFilter] = React.useState('all');
+  const [showCompleted, setShowCompleted] = React.useState(false);
   const [isSaving, setIsSaving] = React.useState(false);
 
   function updateForm(key, value) {
@@ -925,7 +926,8 @@ function TasksPanel({ session, tasks, setTasks, setMessage }) {
     setMessage('任务已保存。');
   }
 
-  const visibleTasks = filterTasks(tasks, filter);
+  const visibleTasks = filterTasks(tasks, filter, showCompleted);
+  const completedTasksCount = tasks.filter((task) => task.status === 'completed').length;
 
   return (
     <div className="two-column-layout">
@@ -1004,6 +1006,16 @@ function TasksPanel({ session, tasks, setTasks, setMessage }) {
             <option value="important_urgent">重要紧急</option>
           </select>
         </div>
+        <label className="toggle-row">
+          <input
+            type="checkbox"
+            checked={showCompleted || filter === 'completed'}
+            disabled={filter === 'completed'}
+            onChange={(event) => setShowCompleted(event.target.checked)}
+          />
+          <span>显示已完成</span>
+          <small>{completedTasksCount} 项</small>
+        </label>
         <TaskList tasks={visibleTasks} setTasks={setTasks} setMessage={setMessage} />
       </section>
     </div>
@@ -1772,17 +1784,19 @@ function EmptyState({ text }) {
   );
 }
 
-function filterTasks(tasks, filter) {
+function filterTasks(tasks, filter, showCompleted = true) {
   const today = getToday();
-  if (filter === 'today') return tasks.filter((task) => task.task_date === today);
-  if (filter === 'overdue') return tasks.filter(isTaskOverdue);
-  if (filter === 'unfinished') return tasks.filter((task) => task.status !== 'completed');
   if (filter === 'completed') return tasks.filter((task) => task.status === 'completed');
-  if (filter === 'in_progress') return tasks.filter((task) => task.status === 'in_progress');
-  if (filter === 'not_started') return tasks.filter((task) => task.status === 'not_started');
-  if (filter === 'stalled') return tasks.filter((task) => task.status === 'stalled');
-  if (filter === 'important_urgent') return tasks.filter((task) => task.matrix_category === 'important_urgent');
-  return tasks;
+
+  const visibleTasks = showCompleted ? tasks : tasks.filter((task) => task.status !== 'completed');
+  if (filter === 'today') return visibleTasks.filter((task) => task.task_date === today);
+  if (filter === 'overdue') return visibleTasks.filter(isTaskOverdue);
+  if (filter === 'unfinished') return visibleTasks.filter((task) => task.status !== 'completed');
+  if (filter === 'in_progress') return visibleTasks.filter((task) => task.status === 'in_progress');
+  if (filter === 'not_started') return visibleTasks.filter((task) => task.status === 'not_started');
+  if (filter === 'stalled') return visibleTasks.filter((task) => task.status === 'stalled');
+  if (filter === 'important_urgent') return visibleTasks.filter((task) => task.matrix_category === 'important_urgent');
+  return visibleTasks;
 }
 
 function isTaskOverdue(task) {

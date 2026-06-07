@@ -511,6 +511,28 @@ button {
   background: #dff3e8;
 }
 
+.toggle-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 14px;
+  color: #475467;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.toggle-row input {
+  width: 16px;
+  height: 16px;
+  accent-color: #2f8f67;
+}
+
+.toggle-row small {
+  color: #98a2b3;
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .card-list,
 .compact-list,
 .summary-list {
