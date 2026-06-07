@@ -924,8 +924,9 @@ function TasksPanel({ session, tasks, setTasks, setMessage }) {
     setMessage('任务已保存。');
   }
 
-  const visibleTasks = filterTasks(tasks, filter, showCompleted);
+  const visibleTasks = filterTasks(tasks, filter, filter === 'all' || showCompleted);
   const completedTasksCount = tasks.filter((task) => task.status === 'completed').length;
+  const canToggleCompleted = filter !== 'all' && filter !== 'completed';
 
   return (
     <div className="two-column-layout">
@@ -1004,16 +1005,17 @@ function TasksPanel({ session, tasks, setTasks, setMessage }) {
             <option value="important_urgent">重要紧急</option>
           </select>
         </div>
-        <label className="toggle-row">
-          <input
-            type="checkbox"
-            checked={showCompleted || filter === 'completed'}
-            disabled={filter === 'completed'}
-            onChange={(event) => setShowCompleted(event.target.checked)}
-          />
-          <span>显示已完成</span>
-          <small>{completedTasksCount} 项</small>
-        </label>
+        {canToggleCompleted && (
+          <label className="toggle-row">
+            <input
+              type="checkbox"
+              checked={showCompleted}
+              onChange={(event) => setShowCompleted(event.target.checked)}
+            />
+            <span>显示已完成</span>
+            <small>{completedTasksCount} 项</small>
+          </label>
+        )}
         <TaskList tasks={visibleTasks} setTasks={setTasks} setMessage={setMessage} />
       </section>
     </div>
@@ -1782,6 +1784,7 @@ function EmptyState({ text }) {
 
 function filterTasks(tasks, filter, showCompleted = true) {
   const today = getToday();
+  if (filter === 'all') return tasks;
   if (filter === 'completed') return tasks.filter((task) => task.status === 'completed');
 
   const visibleTasks = showCompleted ? tasks : tasks.filter((task) => task.status !== 'completed');
