@@ -921,10 +921,11 @@ function TasksPanel({ session, tasks, setTasks, setMessage }) {
       matrix_category: 'important_not_urgent',
       status: 'not_started',
     });
-    setMessage('任务已保存。');
+    setMessage('任务已保存到列表。');
   }
 
   const visibleTasks = filterTasks(tasks, statusFilter, matrixFilter);
+  const emptyText = getTaskListEmptyText(statusFilter, matrixFilter);
 
   return (
     <div className="two-column-layout">
@@ -1010,14 +1011,14 @@ function TasksPanel({ session, tasks, setTasks, setMessage }) {
             </select>
           </div>
         </div>
-        <TaskList tasks={visibleTasks} setTasks={setTasks} setMessage={setMessage} />
+        <TaskList tasks={visibleTasks} setTasks={setTasks} setMessage={setMessage} emptyText={emptyText} />
       </section>
     </div>
   );
 }
 
-function TaskList({ tasks, setTasks, setMessage, variant = 'default' }) {
-  if (tasks.length === 0) return <EmptyState text="当前筛选下没有任务，可以切换筛选或新增一条任务。" />;
+function TaskList({ tasks, setTasks, setMessage, variant = 'default', emptyText = '这里暂时没有任务。' }) {
+  if (tasks.length === 0) return <EmptyState text={emptyText} />;
 
   return (
     <div className="card-list">
@@ -1087,7 +1088,7 @@ function TaskCard({ task, setTasks, setMessage, compact = false, variant = 'defa
     setTasks?.((currentTasks) =>
       currentTasks.map((item) => (item.id === task.id ? { ...item, matrix_category: matrixCategory } : item)),
     );
-    setMessage?.('任务分类已更新。');
+    setMessage?.('任务重要紧急程度已更新。');
   }
 
   async function handleDeleteTask() {
@@ -1242,7 +1243,7 @@ function TaskCard({ task, setTasks, setMessage, compact = false, variant = 'defa
             {!compact && (
               isConfirmingDelete ? (
                 <div className="confirm-delete">
-                  <span>确认删除吗？</span>
+                  <span>删除这条任务？</span>
                   <button className="danger-confirm-button" onClick={handleDeleteTask}>
                     删除
                   </button>
@@ -1370,7 +1371,13 @@ function MatrixPanel({ tasks, setTasks, setMessage }) {
               </div>
               <span>{matrixTasks.length}</span>
             </div>
-            <TaskList tasks={matrixTasks} setTasks={setTasks} setMessage={setMessage} variant="matrix" />
+            <TaskList
+              tasks={matrixTasks}
+              setTasks={setTasks}
+              setMessage={setMessage}
+              variant="matrix"
+              emptyText="这个象限暂时没有任务。"
+            />
           </section>
         );
       })}
@@ -1774,6 +1781,14 @@ function EmptyState({ text }) {
       <p>{text}</p>
     </div>
   );
+}
+
+function getTaskListEmptyText(statusFilter, matrixFilter) {
+  if (statusFilter === 'all' && matrixFilter === 'all') {
+    return '还没有任务，先在左侧新增一条安排。';
+  }
+
+  return '没有符合当前筛选的任务，可以换个状态或程度看看。';
 }
 
 function filterTasks(tasks, statusFilter = 'all', matrixFilter = 'all') {
