@@ -581,6 +581,11 @@ button {
   text-decoration: line-through;
 }
 
+.item-card.completed p {
+  color: #98a2b3;
+  text-decoration: line-through;
+}
+
 .item-card h3 {
   margin: 0;
   color: #101828;
