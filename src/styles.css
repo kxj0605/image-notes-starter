@@ -840,8 +840,32 @@ button {
   opacity: 0.45;
 }
 
+.calendar-cell.past {
+  background: #f8faf9;
+  color: #98a2b3;
+}
+
+.calendar-cell.past span,
+.calendar-cell.past small {
+  color: #98a2b3;
+}
+
 .calendar-cell.today {
   border-color: #2f8f67;
+  background: #effaf4;
+  box-shadow: inset 0 0 0 1px #2f8f67;
+}
+
+.calendar-cell.today strong::after {
+  content: "今天";
+  display: inline-flex;
+  margin-left: 6px;
+  border-radius: 999px;
+  padding: 2px 6px;
+  background: #2f8f67;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 800;
 }
 
 .matrix-cell {

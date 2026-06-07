@@ -1322,12 +1322,15 @@ function CalendarPanel({ tasks }) {
           ))}
           {monthDays.map((day) => {
             const dayTasks = tasks.filter((task) => task.task_date === day.date);
+            const isToday = day.date === getToday();
+            const isPast = day.isCurrentMonth && day.date < getToday();
             return (
               <div
                 className={[
                   'calendar-cell',
                   day.isCurrentMonth ? '' : 'muted',
-                  day.date === getToday() ? 'today' : '',
+                  isToday ? 'today' : '',
+                  isPast ? 'past' : '',
                 ].join(' ')}
                 key={day.date}
               >
