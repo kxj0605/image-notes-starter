@@ -562,9 +562,7 @@ function WorkspacePage({ session, profile, initialTab, onProfileChange, onLogin 
       {activeTab === tabs.tasks && (
         <TasksPanel session={session} tasks={tasks} setTasks={setTasks} setMessage={setMessage} />
       )}
-      {activeTab === tabs.calendar && (
-        <CalendarPanel tasks={tasks} onStatusChange={(task, status) => updateTaskStatus(task, status, setTasks, setMessage)} />
-      )}
+      {activeTab === tabs.calendar && <CalendarPanel tasks={tasks} />}
       {activeTab === tabs.matrix && (
         <MatrixPanel tasks={tasks} setTasks={setTasks} setMessage={setMessage} />
       )}
@@ -1302,11 +1300,9 @@ async function updateTaskStatus(task, status, setTasks, setMessage) {
   setMessage?.('任务状态已更新。');
 }
 
-function CalendarPanel({ tasks, onStatusChange }) {
+function CalendarPanel({ tasks }) {
   const [currentDate, setCurrentDate] = React.useState(new Date());
-  const [selectedDate, setSelectedDate] = React.useState(getToday());
   const monthDays = getMonthDays(currentDate);
-  const selectedTasks = tasks.filter((task) => task.task_date === selectedDate);
 
   function shiftMonth(delta) {
     setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + delta, 1));
@@ -1327,38 +1323,23 @@ function CalendarPanel({ tasks, onStatusChange }) {
           {monthDays.map((day) => {
             const dayTasks = tasks.filter((task) => task.task_date === day.date);
             return (
-              <button
+              <div
                 className={[
                   'calendar-cell',
                   day.isCurrentMonth ? '' : 'muted',
                   day.date === getToday() ? 'today' : '',
-                  day.date === selectedDate ? 'selected' : '',
                 ].join(' ')}
                 key={day.date}
-                onClick={() => setSelectedDate(day.date)}
               >
                 <strong>{day.dayNumber}</strong>
                 {dayTasks.slice(0, 2).map((task) => (
                   <span key={task.id}>{task.title}</span>
                 ))}
                 {dayTasks.length > 2 && <small>+{dayTasks.length - 2}</small>}
-              </button>
+              </div>
             );
           })}
         </div>
-      </section>
-
-      <section className="panel-card">
-        <h2>{formatDate(selectedDate)}</h2>
-        {selectedTasks.length === 0 ? (
-          <EmptyState text="这一天还没有任务，可以回到任务页添加安排。" />
-        ) : (
-          <div className="card-list">
-            {selectedTasks.map((task) => (
-              <TaskCard key={task.id} task={task} compact setMessage={() => {}} setTasks={() => {}} />
-            ))}
-          </div>
-        )}
       </section>
     </div>
   );

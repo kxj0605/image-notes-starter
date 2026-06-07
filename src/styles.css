@@ -438,10 +438,16 @@ button {
 }
 
 .dashboard-grid,
-.two-column-layout,
-.calendar-layout {
+.two-column-layout {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  margin-top: 18px;
+}
+
+.calendar-layout {
+  display: grid;
+  grid-template-columns: 1fr;
   gap: 18px;
   margin-top: 18px;
 }
@@ -814,7 +820,6 @@ button {
   padding: 9px;
   background: #ffffff;
   color: #172033;
-  cursor: pointer;
   text-align: left;
 }
 
@@ -837,10 +842,6 @@ button {
 
 .calendar-cell.today {
   border-color: #2f8f67;
-}
-
-.calendar-cell.selected {
-  background: #effaf4;
 }
 
 .matrix-cell {
