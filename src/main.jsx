@@ -1486,7 +1486,7 @@ function PublicNotesPage({ session, profile, onLogin }) {
 
         if (commentError) {
           setCommentsEnabled(false);
-          setMessage('评论区需要先在 Supabase 创建 comments 表，公开笔记仍然可以正常查看。');
+          setMessage('评论区还没有准备好，公开笔记可以正常查看。');
         } else {
           publicComments = commentData ?? [];
           setCommentsEnabled(true);
@@ -1516,13 +1516,13 @@ function PublicNotesPage({ session, profile, onLogin }) {
     setMessage('');
 
     if (!session) {
-      setMessage('请先登录，再发表评论。');
+      setMessage('登录后就可以参与评论。');
       return;
     }
 
     const text = content.trim();
     if (!text) {
-      setMessage('评论内容不能为空。');
+      setMessage('先写一点内容，再发布评论。');
       return;
     }
 
@@ -1533,7 +1533,7 @@ function PublicNotesPage({ session, profile, onLogin }) {
       .single();
 
     if (error) {
-      setMessage(`发表评论失败：${error.message}`);
+      setMessage(`评论发布失败：${error.message}`);
       return;
     }
 
@@ -1554,7 +1554,7 @@ function PublicNotesPage({ session, profile, onLogin }) {
 
     const { error } = await supabase.from('comments').delete().eq('id', commentId);
     if (error) {
-      setMessage(`删除评论失败：${error.message}`);
+      setMessage(`评论删除失败：${error.message}`);
       return;
     }
 
@@ -1582,7 +1582,7 @@ function PublicNotesPage({ session, profile, onLogin }) {
       .single();
 
     if (error) {
-      setMessage(`更新评论失败：${error.message}`);
+      setMessage(`评论更新失败：${error.message}`);
       return false;
     }
 
@@ -1681,9 +1681,9 @@ function CommentsSection({ comments, commentsEnabled, profiles, session, onLogin
       </div>
 
       {!commentsEnabled ? (
-        <p className="muted-text">评论区还没连接数据库。</p>
+        <p className="muted-text">评论区暂时不可用。</p>
       ) : comments.length === 0 ? (
-        <p className="muted-text">还没有评论，可以留下第一条想法。</p>
+        <p className="muted-text">还没有人回应，可以留下第一条评论。</p>
       ) : (
         <div className="comment-list">
           {comments.map((comment) => (
@@ -1696,7 +1696,7 @@ function CommentsSection({ comments, commentsEnabled, profiles, session, onLogin
                 {session?.user.id === comment.user_id && (
                   confirmingDeleteCommentId === comment.id ? (
                     <div className="confirm-delete comment-confirm-delete">
-                      <span>确认删除吗？</span>
+                      <span>删除这条评论？</span>
                       <button
                         className="danger-confirm-button"
                         onClick={() => handleDeleteComment(comment.id)}
@@ -1756,17 +1756,17 @@ function CommentsSection({ comments, commentsEnabled, profiles, session, onLogin
             <textarea
               rows={2}
               value={draft}
-              placeholder="写一条评论..."
+              placeholder="写下你的想法..."
               maxLength={500}
               onChange={(event) => setDraft(event.target.value)}
             />
             <button className="primary-button" type="submit" disabled={isSubmitting || !draft.trim()}>
-              {isSubmitting ? '发布中...' : '发布评论'}
+              {isSubmitting ? '发布中...' : '发布'}
             </button>
           </form>
         ) : (
           <button className="text-button comment-login-button" onClick={onLogin}>
-            登录后评论
+            登录后参与评论
           </button>
         )
       )}
