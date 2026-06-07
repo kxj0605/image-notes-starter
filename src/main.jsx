@@ -884,8 +884,8 @@ function TasksPanel({ session, tasks, setTasks, setMessage }) {
     matrix_category: 'important_not_urgent',
     status: 'not_started',
   });
-  const [filter, setFilter] = React.useState('all');
-  const [showCompleted, setShowCompleted] = React.useState(false);
+  const [statusFilter, setStatusFilter] = React.useState('all');
+  const [matrixFilter, setMatrixFilter] = React.useState('all');
   const [isSaving, setIsSaving] = React.useState(false);
 
   function updateForm(key, value) {
@@ -924,9 +924,7 @@ function TasksPanel({ session, tasks, setTasks, setMessage }) {
     setMessage('任务已保存。');
   }
 
-  const visibleTasks = filterTasks(tasks, filter, filter === 'all' || showCompleted);
-  const completedTasksCount = tasks.filter((task) => task.status === 'completed').length;
-  const canToggleCompleted = filter !== 'all' && filter !== 'completed';
+  const visibleTasks = filterTasks(tasks, statusFilter, matrixFilter);
 
   return (
     <div className="two-column-layout">
@@ -993,29 +991,25 @@ function TasksPanel({ session, tasks, setTasks, setMessage }) {
       <section className="panel-card">
         <div className="panel-heading-row">
           <h2>任务列表</h2>
-          <select value={filter} onChange={(event) => setFilter(event.target.value)}>
-            <option value="all">全部</option>
-            <option value="today">今日</option>
-            <option value="overdue">已逾期</option>
-            <option value="unfinished">未完成</option>
-            <option value="completed">已完成</option>
-            <option value="in_progress">进行中</option>
-            <option value="not_started">待开始</option>
-            <option value="stalled">已停滞</option>
-            <option value="important_urgent">重要紧急</option>
-          </select>
+          <div className="task-filter-row">
+            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="筛选任务状态">
+              <option value="all">状态：全部</option>
+              <option value="unfinished">状态：未完成</option>
+              <option value="completed">状态：已完成</option>
+              <option value="in_progress">状态：进行中</option>
+              <option value="not_started">状态：待开始</option>
+              <option value="stalled">状态：已停滞</option>
+            </select>
+            <select value={matrixFilter} onChange={(event) => setMatrixFilter(event.target.value)} aria-label="筛选重要紧急程度">
+              <option value="all">程度：全部</option>
+              {matrixOptions.map((option) => (
+                <option value={option.value} key={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
-        {canToggleCompleted && (
-          <label className="toggle-row">
-            <input
-              type="checkbox"
-              checked={showCompleted}
-              onChange={(event) => setShowCompleted(event.target.checked)}
-            />
-            <span>显示已完成</span>
-            <small>{completedTasksCount} 项</small>
-          </label>
-        )}
         <TaskList tasks={visibleTasks} setTasks={setTasks} setMessage={setMessage} />
       </section>
     </div>
@@ -1782,20 +1776,16 @@ function EmptyState({ text }) {
   );
 }
 
-function filterTasks(tasks, filter, showCompleted = true) {
-  const today = getToday();
-  if (filter === 'all') return tasks;
-  if (filter === 'completed') return tasks.filter((task) => task.status === 'completed');
+function filterTasks(tasks, statusFilter = 'all', matrixFilter = 'all') {
+  return tasks.filter((task) => {
+    const matchesStatus =
+      statusFilter === 'all' ||
+      (statusFilter === 'unfinished' && task.status !== 'completed') ||
+      task.status === statusFilter;
+    const matchesMatrix = matrixFilter === 'all' || task.matrix_category === matrixFilter;
 
-  const visibleTasks = showCompleted ? tasks : tasks.filter((task) => task.status !== 'completed');
-  if (filter === 'today') return visibleTasks.filter((task) => task.task_date === today);
-  if (filter === 'overdue') return visibleTasks.filter(isTaskOverdue);
-  if (filter === 'unfinished') return visibleTasks.filter((task) => task.status !== 'completed');
-  if (filter === 'in_progress') return visibleTasks.filter((task) => task.status === 'in_progress');
-  if (filter === 'not_started') return visibleTasks.filter((task) => task.status === 'not_started');
-  if (filter === 'stalled') return visibleTasks.filter((task) => task.status === 'stalled');
-  if (filter === 'important_urgent') return visibleTasks.filter((task) => task.matrix_category === 'important_urgent');
-  return visibleTasks;
+    return matchesStatus && matchesMatrix;
+  });
 }
 
 function isTaskOverdue(task) {
