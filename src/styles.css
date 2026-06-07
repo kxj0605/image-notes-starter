@@ -576,6 +576,23 @@ button {
   gap: 8px;
 }
 
+.task-title-row h3 {
+  min-width: 0;
+  flex: 1;
+}
+
+.task-title-status-select {
+  width: 96px;
+  min-width: 96px;
+  height: 32px;
+  padding: 0 26px 0 11px;
+  border-radius: 999px;
+  background: #f8faf9;
+  color: #344054;
+  font-size: 13px;
+  font-weight: 800;
+}
+
 .complete-toggle-button {
   display: grid;
   width: 32px;

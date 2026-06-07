@@ -1020,19 +1020,19 @@ function TasksPanel({ session, tasks, setTasks, setMessage }) {
   );
 }
 
-function TaskList({ tasks, setTasks, setMessage }) {
+function TaskList({ tasks, setTasks, setMessage, variant = 'default' }) {
   if (tasks.length === 0) return <EmptyState text="当前筛选下没有任务，可以切换筛选或新增一条任务。" />;
 
   return (
     <div className="card-list">
       {tasks.map((task) => (
-        <TaskCard key={task.id} task={task} setTasks={setTasks} setMessage={setMessage} />
+        <TaskCard key={task.id} task={task} setTasks={setTasks} setMessage={setMessage} variant={variant} />
       ))}
     </div>
   );
 }
 
-function TaskCard({ task, setTasks, setMessage, compact = false }) {
+function TaskCard({ task, setTasks, setMessage, compact = false, variant = 'default' }) {
   const [isEditing, setIsEditing] = React.useState(false);
   const [editForm, setEditForm] = React.useState({
     title: task.title,
@@ -1139,6 +1139,7 @@ function TaskCard({ task, setTasks, setMessage, compact = false }) {
   }
 
   const timingInfo = getTaskTimingInfo(task);
+  const isMatrixView = variant === 'matrix';
 
   return (
     <article className={[task.status === 'completed' ? 'item-card completed' : 'item-card', isTaskOverdue(task) ? 'task-overdue' : ''].filter(Boolean).join(' ')}>
@@ -1217,7 +1218,20 @@ function TaskCard({ task, setTasks, setMessage, compact = false }) {
         <>
           <div className="item-top">
             <div className="task-title-row">
-              {!compact && (
+              {isMatrixView ? (
+                <select
+                  className="task-title-status-select"
+                  value={task.status}
+                  onChange={(event) => handleStatusChange(event.target.value)}
+                  aria-label="更新任务状态"
+                >
+                  {statusOptions.map((option) => (
+                    <option value={option.value} key={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              ) : !compact && (
                 <button
                   className={task.status === 'completed' ? 'complete-toggle-button active' : 'complete-toggle-button'}
                   onClick={handleToggleComplete}
@@ -1263,10 +1277,14 @@ function TaskCard({ task, setTasks, setMessage, compact = false }) {
           {task.description && <p>{task.description}</p>}
           <div className="tag-row">
             <span className={timingInfo.className}>{timingInfo.label}</span>
-            <span className={`tag matrix-tag matrix-${task.matrix_category}`}>{getLabel(matrixOptions, task.matrix_category)}</span>
-            <span className={`tag status-${task.status}`}>{getLabel(statusOptions, task.status)}</span>
+            {!isMatrixView && (
+              <>
+                <span className={`tag matrix-tag matrix-${task.matrix_category}`}>{getLabel(matrixOptions, task.matrix_category)}</span>
+                <span className={`tag status-${task.status}`}>{getLabel(statusOptions, task.status)}</span>
+              </>
+            )}
           </div>
-          {!compact && (
+          {!compact && !isMatrixView && (
             <div className="inline-controls">
               <select value={task.status} onChange={(event) => handleStatusChange(event.target.value)}>
                 {statusOptions.map((option) => (
@@ -1362,7 +1380,7 @@ function MatrixPanel({ tasks, setTasks, setMessage }) {
               </div>
               <span>{matrixTasks.length}</span>
             </div>
-            <TaskList tasks={matrixTasks} setTasks={setTasks} setMessage={setMessage} />
+            <TaskList tasks={matrixTasks} setTasks={setTasks} setMessage={setMessage} variant="matrix" />
           </section>
         );
       })}
