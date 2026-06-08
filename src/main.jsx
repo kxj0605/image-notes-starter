@@ -598,10 +598,6 @@ function Dashboard({ notes, tasks }) {
   const todayTasks = tasks.filter((task) => task.task_date === today);
   const overdueTasks = tasks.filter(isTaskOverdue);
   const importantUrgent = tasks.filter((task) => task.matrix_category === 'important_urgent');
-  const stalledImportant = tasks.filter(
-    (task) => task.matrix_category === 'important_urgent' && task.status === 'stalled',
-  );
-
   return (
     <div className="dashboard-grid">
       <InfoCard title="今日安排" items={todayTasks} emptyText="今天还没有任务，可以先添加一个今天要做的事。" />
@@ -617,15 +613,6 @@ function Dashboard({ notes, tasks }) {
             total={Math.max(tasks.length, 1)}
           />
         ))}
-      </div>
-      <div className="panel-card">
-        <h2>概览</h2>
-        <div className="summary-list">
-          <span>我的笔记：{notes.length}</span>
-          <span>公开笔记：{notes.filter((note) => note.visibility === 'public').length}</span>
-          <span>已逾期任务：{overdueTasks.length}</span>
-          <span>高风险任务：{stalledImportant.length}</span>
-        </div>
       </div>
     </div>
   );
@@ -1440,16 +1427,8 @@ function ProfilePanel({ session, profile, onProfileChange, setMessage }) {
           <span>当前昵称</span>
           <strong>{profile?.nickname ?? '还没有昵称'}</strong>
         </div>
-        <div>
-          <span>公开显示</span>
-          <strong>公开笔记和评论会显示昵称</strong>
-        </div>
-        <div>
-          <span>隐私说明</span>
-          <strong>私人工作台内容仅自己可见</strong>
-        </div>
       </div>
-      <p className="muted-text">修改昵称后，公开笔记和评论里会显示新的昵称，不显示完整邮箱。</p>
+      <p className="muted-text">公开笔记和评论会显示昵称，不显示完整邮箱。</p>
       <form className="form-stack" onSubmit={handleSave}>
         <label htmlFor="nickname">昵称</label>
         <input id="nickname" value={nickname} onChange={(event) => setNickname(event.target.value)} />

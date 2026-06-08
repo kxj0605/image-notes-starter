@@ -555,14 +555,12 @@ button {
 }
 
 .card-list,
-.compact-list,
-.summary-list {
+.compact-list {
   display: grid;
   gap: 12px;
 }
 
-.compact-list span,
-.summary-list span {
+.compact-list span {
   display: flex;
   justify-content: space-between;
   gap: 12px;
