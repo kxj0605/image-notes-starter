@@ -36,6 +36,12 @@ const tabs = {
   profile: 'profile',
 };
 
+const taskViews = {
+  list: 'list',
+  calendar: 'calendar',
+  matrix: 'matrix',
+};
+
 const matrixOptions = [
   { value: 'important_urgent', label: '重要紧急', hint: '马上处理' },
   { value: 'important_not_urgent', label: '重要不紧急', hint: '计划推进' },
@@ -468,7 +474,9 @@ function RegisterPage({ onLogin, onDone }) {
 }
 
 function WorkspacePage({ session, profile, initialTab, onProfileChange, onLogin }) {
-  const [activeTab, setActiveTab] = React.useState(initialTab);
+  const [activeTab, setActiveTab] = React.useState(
+    initialTab === tabs.calendar || initialTab === tabs.matrix ? tabs.tasks : initialTab,
+  );
   const [notes, setNotes] = React.useState([]);
   const [tasks, setTasks] = React.useState([]);
   const [message, setMessage] = React.useState('');
@@ -496,7 +504,7 @@ function WorkspacePage({ session, profile, initialTab, onProfileChange, onLogin 
   }, [session]);
 
   React.useEffect(() => {
-    setActiveTab(initialTab);
+    setActiveTab(initialTab === tabs.calendar || initialTab === tabs.matrix ? tabs.tasks : initialTab);
   }, [initialTab]);
 
   React.useEffect(() => {
@@ -548,8 +556,6 @@ function WorkspacePage({ session, profile, initialTab, onProfileChange, onLogin 
         <TabButton icon={LayoutDashboard} label="仪表盘" value={tabs.dashboard} activeTab={activeTab} onClick={setActiveTab} />
         <TabButton icon={NotebookPen} label="笔记" value={tabs.notes} activeTab={activeTab} onClick={setActiveTab} />
         <TabButton icon={ListTodo} label="任务" value={tabs.tasks} activeTab={activeTab} onClick={setActiveTab} />
-        <TabButton icon={CalendarDays} label="日历" value={tabs.calendar} activeTab={activeTab} onClick={setActiveTab} />
-        <TabButton icon={Database} label="四象限" value={tabs.matrix} activeTab={activeTab} onClick={setActiveTab} />
       </div>
 
       {message && <p className="form-message global-message">{message}</p>}
@@ -561,10 +567,6 @@ function WorkspacePage({ session, profile, initialTab, onProfileChange, onLogin 
       )}
       {activeTab === tabs.tasks && (
         <TasksPanel session={session} tasks={tasks} setTasks={setTasks} setMessage={setMessage} />
-      )}
-      {activeTab === tabs.calendar && <CalendarPanel tasks={tasks} />}
-      {activeTab === tabs.matrix && (
-        <MatrixPanel tasks={tasks} setTasks={setTasks} setMessage={setMessage} />
       )}
       {activeTab === tabs.profile && (
         <ProfilePanel session={session} profile={profile} onProfileChange={onProfileChange} setMessage={setMessage} />
@@ -886,6 +888,7 @@ function TasksPanel({ session, tasks, setTasks, setMessage }) {
   });
   const [statusFilter, setStatusFilter] = React.useState('all');
   const [matrixFilter, setMatrixFilter] = React.useState('all');
+  const [activeTaskView, setActiveTaskView] = React.useState(taskViews.list);
   const [isSaving, setIsSaving] = React.useState(false);
 
   function updateForm(key, value) {
@@ -928,92 +931,105 @@ function TasksPanel({ session, tasks, setTasks, setMessage }) {
   const emptyText = getTaskListEmptyText(statusFilter, matrixFilter);
 
   return (
-    <div className="two-column-layout">
-      <form className="panel-card form-stack" onSubmit={handleCreateTask}>
-        <h2>新增任务</h2>
-        <label htmlFor="task-title">任务标题</label>
-        <input id="task-title" value={form.title} onChange={(event) => updateForm('title', event.target.value)} required />
-        <label htmlFor="task-description">备注</label>
-        <textarea
-          id="task-description"
-          rows={4}
-          value={form.description}
-          onChange={(event) => updateForm('description', event.target.value)}
-        />
-        <div className="form-grid">
-          <label>
-            重要紧急程度
-            <select id="task-matrix" value={form.matrix_category} onChange={(event) => updateForm('matrix_category', event.target.value)}>
-              {matrixOptions.map((option) => (
-                <option value={option.value} key={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            进展状态
-            <select id="task-status" value={form.status} onChange={(event) => updateForm('status', event.target.value)}>
-              {statusOptions.map((option) => (
-                <option value={option.value} key={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-        <div className="form-grid">
-          <label>
-            日期
-            <input type="date" value={form.task_date} onChange={(event) => updateForm('task_date', event.target.value)} required />
-          </label>
-          <label>
-            时间
-            <input type="time" value={form.task_time} onChange={(event) => updateForm('task_time', event.target.value)} />
-          </label>
-        </div>
-        <div className="quick-date-row" aria-label="快捷日期">
-          <button type="button" onClick={() => updateForm('task_date', getRelativeDate(0))}>
-            今天
-          </button>
-          <button type="button" onClick={() => updateForm('task_date', getRelativeDate(1))}>
-            明天
-          </button>
-          <button type="button" onClick={() => updateForm('task_date', getRelativeDate(2))}>
-            后天
-          </button>
-        </div>
-        <button className="primary-button large" disabled={isSaving}>
-          <Plus size={18} />
-          {isSaving ? '保存中...' : '保存任务'}
-        </button>
-      </form>
+    <>
+      <div className="tab-bar task-view-tabs">
+        <TabButton icon={ListTodo} label="列表" value={taskViews.list} activeTab={activeTaskView} onClick={setActiveTaskView} />
+        <TabButton icon={CalendarDays} label="日历" value={taskViews.calendar} activeTab={activeTaskView} onClick={setActiveTaskView} />
+        <TabButton icon={Database} label="四象限" value={taskViews.matrix} activeTab={activeTaskView} onClick={setActiveTaskView} />
+      </div>
 
-      <section className="panel-card">
-        <div className="panel-heading-row">
-          <h2>任务列表</h2>
-          <div className="task-filter-row">
-            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="筛选任务状态">
-              <option value="all">状态：全部</option>
-              <option value="unfinished">状态：未完成</option>
-              <option value="completed">状态：已完成</option>
-              <option value="in_progress">状态：进行中</option>
-              <option value="not_started">状态：待开始</option>
-              <option value="stalled">状态：已停滞</option>
-            </select>
-            <select value={matrixFilter} onChange={(event) => setMatrixFilter(event.target.value)} aria-label="筛选重要紧急程度">
-              <option value="all">程度：全部</option>
-              {matrixOptions.map((option) => (
-                <option value={option.value} key={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </div>
+      {activeTaskView === taskViews.list && (
+        <div className="two-column-layout">
+          <form className="panel-card form-stack" onSubmit={handleCreateTask}>
+            <h2>新增任务</h2>
+            <label htmlFor="task-title">任务标题</label>
+            <input id="task-title" value={form.title} onChange={(event) => updateForm('title', event.target.value)} required />
+            <label htmlFor="task-description">备注</label>
+            <textarea
+              id="task-description"
+              rows={4}
+              value={form.description}
+              onChange={(event) => updateForm('description', event.target.value)}
+            />
+            <div className="form-grid">
+              <label>
+                重要紧急程度
+                <select id="task-matrix" value={form.matrix_category} onChange={(event) => updateForm('matrix_category', event.target.value)}>
+                  {matrixOptions.map((option) => (
+                    <option value={option.value} key={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                进展状态
+                <select id="task-status" value={form.status} onChange={(event) => updateForm('status', event.target.value)}>
+                  {statusOptions.map((option) => (
+                    <option value={option.value} key={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <div className="form-grid">
+              <label>
+                日期
+                <input type="date" value={form.task_date} onChange={(event) => updateForm('task_date', event.target.value)} required />
+              </label>
+              <label>
+                时间
+                <input type="time" value={form.task_time} onChange={(event) => updateForm('task_time', event.target.value)} />
+              </label>
+            </div>
+            <div className="quick-date-row" aria-label="快捷日期">
+              <button type="button" onClick={() => updateForm('task_date', getRelativeDate(0))}>
+                今天
+              </button>
+              <button type="button" onClick={() => updateForm('task_date', getRelativeDate(1))}>
+                明天
+              </button>
+              <button type="button" onClick={() => updateForm('task_date', getRelativeDate(2))}>
+                后天
+              </button>
+            </div>
+            <button className="primary-button large" disabled={isSaving}>
+              <Plus size={18} />
+              {isSaving ? '保存中...' : '保存任务'}
+            </button>
+          </form>
+
+          <section className="panel-card">
+            <div className="panel-heading-row">
+              <h2>任务列表</h2>
+              <div className="task-filter-row">
+                <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="筛选任务状态">
+                  <option value="all">状态：全部</option>
+                  <option value="unfinished">状态：未完成</option>
+                  <option value="completed">状态：已完成</option>
+                  <option value="in_progress">状态：进行中</option>
+                  <option value="not_started">状态：待开始</option>
+                  <option value="stalled">状态：已停滞</option>
+                </select>
+                <select value={matrixFilter} onChange={(event) => setMatrixFilter(event.target.value)} aria-label="筛选重要紧急程度">
+                  <option value="all">程度：全部</option>
+                  {matrixOptions.map((option) => (
+                    <option value={option.value} key={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <TaskList tasks={visibleTasks} setTasks={setTasks} setMessage={setMessage} emptyText={emptyText} />
+          </section>
         </div>
-        <TaskList tasks={visibleTasks} setTasks={setTasks} setMessage={setMessage} emptyText={emptyText} />
-      </section>
-    </div>
+      )}
+
+      {activeTaskView === taskViews.calendar && <CalendarPanel tasks={tasks} />}
+      {activeTaskView === taskViews.matrix && <MatrixPanel tasks={tasks} setTasks={setTasks} setMessage={setMessage} />}
+    </>
   );
 }
 

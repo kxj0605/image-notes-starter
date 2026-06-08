@@ -437,6 +437,10 @@ button {
   color: #ffffff;
 }
 
+.task-view-tabs {
+  margin-top: 6px;
+}
+
 .dashboard-grid,
 .two-column-layout {
   display: grid;
