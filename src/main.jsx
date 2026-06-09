@@ -553,7 +553,7 @@ function WorkspacePage({ session, profile, initialTab, onProfileChange, onLogin 
       </div>
 
       <div className="tab-bar">
-        <TabButton icon={LayoutDashboard} label="仪表盘" value={tabs.dashboard} activeTab={activeTab} onClick={setActiveTab} />
+        <TabButton icon={LayoutDashboard} label="主页" value={tabs.dashboard} activeTab={activeTab} onClick={setActiveTab} />
         <TabButton icon={NotebookPen} label="笔记" value={tabs.notes} activeTab={activeTab} onClick={setActiveTab} />
         <TabButton icon={ListTodo} label="任务" value={tabs.tasks} activeTab={activeTab} onClick={setActiveTab} />
       </div>
