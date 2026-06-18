@@ -10,7 +10,6 @@ import {
   Flame,
   Github,
   House,
-  LayoutDashboard,
   ListTodo,
   LogIn,
   LogOut,
@@ -21,7 +20,6 @@ import {
   Pencil,
   Plus,
   Settings2,
-  ShieldCheck,
   Sparkles,
   Star,
   Target,
@@ -29,96 +27,33 @@ import {
   UserPlus,
   Zap,
 } from 'lucide-react';
-import { isSupabaseConfigured, supabase } from './supabaseClient';
+import { supabase } from './supabaseClient';
+import { matrixOptions, pages, statusOptions, tabs, taskViews } from './config';
+import { LoginPage, RegisterPage } from './pages/AuthPages';
+import { HomePage } from './pages/HomePage';
+import {
+  formatDate,
+  formatFullDate,
+  formatTime,
+  getGreeting,
+  getMonthDays,
+  getRelativeDate,
+  getToday,
+} from './utils/date';
+import {
+  filterTasks,
+  getLabel,
+  getTaskListEmptyText,
+  getTaskTimingInfo,
+  isTaskOverdue,
+  sortTasks,
+} from './utils/tasks';
 import './styles.css';
-
-const pages = {
-  home: 'home',
-  login: 'login',
-  register: 'register',
-  workspace: 'workspace',
-  publicNotes: 'publicNotes',
-};
-
-const tabs = {
-  dashboard: 'dashboard',
-  notes: 'notes',
-  tasks: 'tasks',
-  calendar: 'calendar',
-  matrix: 'matrix',
-  profile: 'profile',
-};
-
-const taskViews = {
-  list: 'list',
-  calendar: 'calendar',
-  matrix: 'matrix',
-};
-
-const matrixOptions = [
-  { value: 'important_urgent', label: '重要紧急', hint: '马上处理' },
-  { value: 'important_not_urgent', label: '重要不紧急', hint: '计划推进' },
-  { value: 'urgent_not_important', label: '紧急不重要', hint: '尽量压缩' },
-  { value: 'not_urgent_not_important', label: '不紧急不重要', hint: '有空再做' },
-];
-
-const statusOptions = [
-  { value: 'not_started', label: '待开始' },
-  { value: 'in_progress', label: '进行中' },
-  { value: 'completed', label: '已完成' },
-  { value: 'stalled', label: '已停滞' },
-];
-
-function getToday() {
-  return new Date().toISOString().slice(0, 10);
-}
-
-function getRelativeDate(offsetDays) {
-  const date = new Date();
-  date.setDate(date.getDate() + offsetDays);
-  return date.toISOString().slice(0, 10);
-}
 
 function makeNickname(email = '') {
   const prefix = email.split('@')[0] || '用户';
   const number = Math.floor(1000 + Math.random() * 9000);
   return `${prefix}${number}`;
-}
-
-function formatDate(dateString) {
-  if (!dateString) return '未设置';
-  return new Date(`${dateString}T00:00:00`).toLocaleDateString('zh-CN', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  });
-}
-
-function formatTime(timeString) {
-  if (!timeString) return '';
-  return timeString.slice(0, 5);
-}
-
-function getLabel(options, value) {
-  return options.find((item) => item.value === value)?.label ?? value;
-}
-
-function getGreeting() {
-  const hour = new Date().getHours();
-  if (hour < 6) return '夜深了';
-  if (hour < 12) return '早上好';
-  if (hour < 18) return '下午好';
-  return '晚上好';
-}
-
-function formatFullDate() {
-  const date = new Date();
-  const monthDay = new Intl.DateTimeFormat('zh-CN', {
-    month: 'long',
-    day: 'numeric',
-  }).format(date);
-  const weekday = new Intl.DateTimeFormat('zh-CN', { weekday: 'long' }).format(date);
-  return `${monthDay}，${weekday}`;
 }
 
 function App() {
@@ -184,7 +119,9 @@ function App() {
         ? 'app-shell workspace-app-shell'
         : currentPage === pages.publicNotes
           ? 'app-shell public-app-shell'
-          : 'app-shell'
+          : currentPage === pages.home
+            ? 'app-shell home-app-shell'
+            : 'app-shell'
     }>
       {currentPage !== pages.workspace && <nav className="top-nav" aria-label="主导航">
         <button className="brand" onClick={() => setCurrentPage(pages.home)}>
@@ -242,10 +179,12 @@ function App() {
                 <LogIn size={17} />
                 登录
               </button>
-              <button className="primary-button" onClick={() => setCurrentPage(pages.register)}>
-                <UserPlus size={17} />
-                注册
-              </button>
+              {currentPage !== pages.home && (
+                <button className="primary-button" onClick={() => setCurrentPage(pages.register)}>
+                  <UserPlus size={17} />
+                  注册
+                </button>
+              )}
             </>
           )}
         </div>
@@ -295,243 +234,6 @@ function App() {
         />
       )}
     </main>
-  );
-}
-
-function HomePage({ authReady, session, onLogin, onRegister, onWorkspace, onPublicNotes }) {
-  return (
-    <section className="home-grid">
-      <div className="hero-copy">
-        <p className="eyebrow">私人工作台与公开分享</p>
-        <h1>管理任务提醒，也记录可以分享的想法</h1>
-        <p className="hero-text">
-          在私人工作台安排任务、查看逾期提醒、记录私密笔记；也可以把想法公开成笔记，让别人阅读和评论。
-        </p>
-
-        <div className="privacy-note">
-          <ShieldCheck size={18} />
-          <span>任务和私密笔记仅自己可见，只有公开笔记会出现在公开笔记页。</span>
-        </div>
-
-        <div className="hero-actions">
-          {session ? (
-            <button className="primary-button large" onClick={onWorkspace}>
-              <LayoutDashboard size={18} />
-              进入我的工作台
-            </button>
-          ) : (
-            <button className="primary-button large" onClick={onRegister}>
-              <UserPlus size={18} />
-              注册账号
-            </button>
-          )}
-          <button className="text-button large" onClick={session ? onPublicNotes : onLogin}>
-            {session ? '查看公开笔记' : '登录'}
-          </button>
-        </div>
-
-        <p className="auth-state">{authReady ? (session ? '当前已登录' : '当前未登录') : '正在检查登录状态...'}</p>
-      </div>
-
-      <div className="tool-preview" aria-label="工具预览">
-        <div className="preview-card note-preview">
-          <span className="tag">私人工作台</span>
-          <h2>今天 3 项，已逾期 1 项</h2>
-          <p>把要做的事按日期、状态和重要紧急程度排好。</p>
-        </div>
-        <div className="mini-calendar">
-          {['一', '二', '三', '四', '五', '六', '日'].map((day) => (
-            <span className="calendar-head" key={day}>
-              {day}
-            </span>
-          ))}
-          {Array.from({ length: 14 }, (_, index) => (
-            <span className={index === 8 ? 'calendar-day active' : 'calendar-day'} key={index}>
-              {index + 1}
-            </span>
-          ))}
-        </div>
-        <div className="matrix-preview">
-          <div>
-            <strong>公开笔记</strong>
-            <span>把想法公开分享给其他人阅读。</span>
-          </div>
-          <div>
-            <strong>评论区</strong>
-            <span>登录后可以评论，也能编辑和删除自己的评论。</span>
-          </div>
-          <div>
-            <strong>四象限</strong>
-            <span>用重要紧急程度快速判断优先级。</span>
-          </div>
-          <div>
-            <strong>日历视图</strong>
-            <span>按日期查看每天安排了哪些任务。</span>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function LoginPage({ onRegister, onDone }) {
-  const [email, setEmail] = React.useState('');
-  const [password, setPassword] = React.useState('');
-  const [message, setMessage] = React.useState('');
-  const [isLoading, setIsLoading] = React.useState(false);
-
-  async function handleSubmit(event) {
-    event.preventDefault();
-    setMessage('');
-
-    if (!isSupabaseConfigured) {
-      setMessage('Supabase 还没有配置好。');
-      return;
-    }
-
-    setIsLoading(true);
-
-    try {
-      const timeout = new Promise((_, reject) => {
-        window.setTimeout(() => reject(new Error('AUTH_TIMEOUT')), 12000);
-      });
-      const { error } = await Promise.race([
-        supabase.auth.signInWithPassword({ email, password }),
-        timeout,
-      ]);
-
-      if (error) {
-        const errorText = error.message?.toLowerCase() ?? '';
-        if (errorText.includes('email not confirmed')) {
-          setMessage('邮箱还没有验证，请先打开注册邮件完成验证。');
-        } else if (errorText.includes('invalid login credentials')) {
-          setMessage('邮箱或密码不正确，请检查后再试。');
-        } else {
-          setMessage(`登录失败：${error.message}`);
-        }
-        return;
-      }
-
-      onDone();
-    } catch (error) {
-      setMessage(
-        error.message === 'AUTH_TIMEOUT'
-          ? '连接登录服务超时，请检查网络后重试。'
-          : '暂时无法连接登录服务，请稍后重试。',
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  }
-
-  return (
-    <section className="auth-page">
-      <div className="auth-card">
-        <p className="eyebrow">登录</p>
-        <h1>进入私人工作台</h1>
-        <p className="muted-text">登录后可以继续管理任务、私密笔记、公开笔记和评论。</p>
-        <form className="form-stack" onSubmit={handleSubmit}>
-          <label htmlFor="login-email">邮箱</label>
-          <input
-            id="login-email"
-            type="email"
-            placeholder="you@example.com"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            required
-          />
-          <label htmlFor="login-password">密码</label>
-          <input
-            id="login-password"
-            type="password"
-            placeholder="请输入密码"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            required
-          />
-          <button className="primary-button large" type="submit" disabled={isLoading}>
-            <LogIn size={18} />
-            {isLoading ? '登录中...' : '登录'}
-          </button>
-        </form>
-        {message && <p className="form-message">{message}</p>}
-        <button className="link-button" onClick={onRegister}>
-          还没有账号，去注册
-        </button>
-      </div>
-    </section>
-  );
-}
-
-function RegisterPage({ onLogin, onDone }) {
-  const [email, setEmail] = React.useState('');
-  const [password, setPassword] = React.useState('');
-  const [message, setMessage] = React.useState('');
-  const [isLoading, setIsLoading] = React.useState(false);
-
-  async function handleSubmit(event) {
-    event.preventDefault();
-    setMessage('');
-
-    if (!isSupabaseConfigured) {
-      setMessage('Supabase 还没有配置好。');
-      return;
-    }
-
-    setIsLoading(true);
-    const { data, error } = await supabase.auth.signUp({ email, password });
-    setIsLoading(false);
-
-    if (error) {
-      setMessage(`注册失败：${error.message}`);
-      return;
-    }
-
-    if (data.session) {
-      onDone();
-      return;
-    }
-
-    setMessage('注册成功。请去邮箱确认账号，然后回来登录。');
-  }
-
-  return (
-    <section className="auth-page">
-      <div className="auth-card">
-        <p className="eyebrow">注册</p>
-        <h1>创建你的私人工作台</h1>
-        <p className="muted-text">账号会保存你的任务、笔记、昵称和公开评论记录。</p>
-        <form className="form-stack" onSubmit={handleSubmit}>
-          <label htmlFor="register-email">邮箱</label>
-          <input
-            id="register-email"
-            type="email"
-            placeholder="you@example.com"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            required
-          />
-          <label htmlFor="register-password">密码</label>
-          <input
-            id="register-password"
-            type="password"
-            placeholder="至少 6 位"
-            value={password}
-            minLength={6}
-            onChange={(event) => setPassword(event.target.value)}
-            required
-          />
-          <button className="primary-button large" type="submit" disabled={isLoading}>
-            <UserPlus size={18} />
-            {isLoading ? '注册中...' : '注册'}
-          </button>
-        </form>
-        {message && <p className="form-message">{message}</p>}
-        <button className="link-button" onClick={onLogin}>
-          已经有账号，去登录
-        </button>
-      </div>
-    </section>
   );
 }
 
@@ -2032,95 +1734,6 @@ function EmptyState({ text }) {
       <p>{text}</p>
     </div>
   );
-}
-
-function getTaskListEmptyText(statusFilter, matrixFilter) {
-  if (statusFilter === 'all' && matrixFilter === 'all') {
-    return '还没有任务，先在左侧新增一条安排。';
-  }
-
-  return '没有符合当前筛选的任务，可以换个状态或程度看看。';
-}
-
-function filterTasks(tasks, statusFilter = 'all', matrixFilter = 'all') {
-  return tasks.filter((task) => {
-    const matchesStatus =
-      (statusFilter === 'all' && task.status !== 'completed') ||
-      (statusFilter === 'unfinished' && task.status !== 'completed') ||
-      task.status === statusFilter;
-    const matchesMatrix = matrixFilter === 'all' || task.matrix_category === matrixFilter;
-
-    return matchesStatus && matchesMatrix;
-  });
-}
-
-function isTaskOverdue(task) {
-  if (!task.task_date || task.status === 'completed') return false;
-
-  const today = getToday();
-  if (task.task_date < today) return true;
-  if (task.task_date > today) return false;
-  if (!task.task_time) return false;
-
-  return new Date(`${task.task_date}T${task.task_time}`).getTime() < Date.now();
-}
-
-function getTaskTimingInfo(task) {
-  const timeText = formatTime(task.task_time);
-
-  if (isTaskOverdue(task)) {
-    const dateText = task.task_date === getToday() ? '今天' : formatDate(task.task_date);
-    return {
-      className: 'tag timing-overdue',
-      label: `已逾期 · ${dateText}${timeText ? ` ${timeText}` : ''}`,
-    };
-  }
-
-  if (task.status !== 'completed' && task.task_date === getToday()) {
-    return {
-      className: 'tag timing-today',
-      label: `今天${timeText ? ` · ${timeText}` : ''}`,
-    };
-  }
-
-  return {
-    className: 'tag',
-    label: `${formatDate(task.task_date)} ${timeText}`.trim(),
-  };
-}
-
-function sortTasks(a, b) {
-  const priorityA = getTaskSortPriority(a);
-  const priorityB = getTaskSortPriority(b);
-  if (priorityA !== priorityB) return priorityA - priorityB;
-
-  return `${a.task_date}${a.task_time ?? ''}`.localeCompare(`${b.task_date}${b.task_time ?? ''}`);
-}
-
-function getTaskSortPriority(task) {
-  if (task.status === 'completed') return 4;
-  if (isTaskOverdue(task)) return 1;
-  if (task.task_date === getToday()) return 2;
-  return 3;
-}
-
-function getMonthDays(currentDate) {
-  const year = currentDate.getFullYear();
-  const month = currentDate.getMonth();
-  const firstDay = new Date(year, month, 1);
-  const start = new Date(firstDay);
-  const weekday = firstDay.getDay() || 7;
-  start.setDate(firstDay.getDate() - weekday + 1);
-
-  return Array.from({ length: 42 }, (_, index) => {
-    const day = new Date(start);
-    day.setDate(start.getDate() + index);
-    return {
-      date: day.toISOString().slice(0, 10),
-      dayNumber: day.getDate(),
-      isCurrentMonth: day.getMonth() === month,
-    };
-  });
 }
 
 createRoot(document.getElementById('root')).render(<App />);
