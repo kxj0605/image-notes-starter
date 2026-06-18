@@ -1,20 +1,33 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import {
+  ArrowRight,
   CalendarDays,
   CheckCircle2,
+  Clock3,
   Database,
+  FileText,
+  Flame,
   Github,
+  House,
   LayoutDashboard,
   ListTodo,
   LogIn,
   LogOut,
   NotebookPen,
+  Palette,
+  PanelLeftClose,
+  PanelLeftOpen,
   Pencil,
   Plus,
+  Settings2,
   ShieldCheck,
+  Sparkles,
+  Star,
+  Target,
   Trash2,
   UserPlus,
+  Zap,
 } from 'lucide-react';
 import { isSupabaseConfigured, supabase } from './supabaseClient';
 import './styles.css';
@@ -90,6 +103,24 @@ function getLabel(options, value) {
   return options.find((item) => item.value === value)?.label ?? value;
 }
 
+function getGreeting() {
+  const hour = new Date().getHours();
+  if (hour < 6) return '夜深了';
+  if (hour < 12) return '早上好';
+  if (hour < 18) return '下午好';
+  return '晚上好';
+}
+
+function formatFullDate() {
+  const date = new Date();
+  const monthDay = new Intl.DateTimeFormat('zh-CN', {
+    month: 'long',
+    day: 'numeric',
+  }).format(date);
+  const weekday = new Intl.DateTimeFormat('zh-CN', { weekday: 'long' }).format(date);
+  return `${monthDay}，${weekday}`;
+}
+
 function App() {
   const [currentPage, setCurrentPage] = React.useState(pages.home);
   const [workspaceTab, setWorkspaceTab] = React.useState(tabs.dashboard);
@@ -148,8 +179,14 @@ function App() {
   }
 
   return (
-    <main className="app-shell">
-      <nav className="top-nav" aria-label="主导航">
+    <main className={
+      currentPage === pages.workspace
+        ? 'app-shell workspace-app-shell'
+        : currentPage === pages.publicNotes
+          ? 'app-shell public-app-shell'
+          : 'app-shell'
+    }>
+      {currentPage !== pages.workspace && <nav className="top-nav" aria-label="主导航">
         <button className="brand" onClick={() => setCurrentPage(pages.home)}>
           <span className="brand-mark">
             <NotebookPen size={20} />
@@ -212,7 +249,7 @@ function App() {
             </>
           )}
         </div>
-      </nav>
+      </nav>}
 
       {currentPage === pages.home && (
         <HomePage
@@ -253,6 +290,8 @@ function App() {
           initialTab={workspaceTab}
           onProfileChange={setProfile}
           onLogin={() => setCurrentPage(pages.login)}
+          onPublicNotes={() => setCurrentPage(pages.publicNotes)}
+          onSignOut={handleSignOut}
         />
       )}
     </main>
@@ -351,15 +390,38 @@ function LoginPage({ onRegister, onDone }) {
     }
 
     setIsLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setIsLoading(false);
 
-    if (error) {
-      setMessage('邮箱或密码不正确，请检查后再试。');
-      return;
+    try {
+      const timeout = new Promise((_, reject) => {
+        window.setTimeout(() => reject(new Error('AUTH_TIMEOUT')), 12000);
+      });
+      const { error } = await Promise.race([
+        supabase.auth.signInWithPassword({ email, password }),
+        timeout,
+      ]);
+
+      if (error) {
+        const errorText = error.message?.toLowerCase() ?? '';
+        if (errorText.includes('email not confirmed')) {
+          setMessage('邮箱还没有验证，请先打开注册邮件完成验证。');
+        } else if (errorText.includes('invalid login credentials')) {
+          setMessage('邮箱或密码不正确，请检查后再试。');
+        } else {
+          setMessage(`登录失败：${error.message}`);
+        }
+        return;
+      }
+
+      onDone();
+    } catch (error) {
+      setMessage(
+        error.message === 'AUTH_TIMEOUT'
+          ? '连接登录服务超时，请检查网络后重试。'
+          : '暂时无法连接登录服务，请稍后重试。',
+      );
+    } finally {
+      setIsLoading(false);
     }
-
-    onDone();
   }
 
   return (
@@ -473,7 +535,7 @@ function RegisterPage({ onLogin, onDone }) {
   );
 }
 
-function WorkspacePage({ session, profile, initialTab, onProfileChange, onLogin }) {
+function WorkspacePage({ session, profile, initialTab, onProfileChange, onLogin, onPublicNotes, onSignOut }) {
   const [activeTab, setActiveTab] = React.useState(
     initialTab === tabs.calendar || initialTab === tabs.matrix ? tabs.tasks : initialTab,
   );
@@ -481,6 +543,10 @@ function WorkspacePage({ session, profile, initialTab, onProfileChange, onLogin 
   const [tasks, setTasks] = React.useState([]);
   const [message, setMessage] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(false);
+  const [theme, setTheme] = React.useState(() => window.localStorage.getItem('workspace-theme') || 'default');
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = React.useState(
+    () => window.localStorage.getItem('workspace-sidebar-collapsed') === 'true',
+  );
 
   const loadData = React.useCallback(async () => {
     if (!session || !supabase) return;
@@ -511,6 +577,14 @@ function WorkspacePage({ session, profile, initialTab, onProfileChange, onLogin 
     loadData();
   }, [loadData]);
 
+  React.useEffect(() => {
+    window.localStorage.setItem('workspace-theme', theme);
+  }, [theme]);
+
+  React.useEffect(() => {
+    window.localStorage.setItem('workspace-sidebar-collapsed', String(isSidebarCollapsed));
+  }, [isSidebarCollapsed]);
+
   if (!session) {
     return (
       <section className="auth-page">
@@ -529,49 +603,113 @@ function WorkspacePage({ session, profile, initialTab, onProfileChange, onLogin 
 
   const today = getToday();
   const todayTasks = tasks.filter((task) => task.task_date === today);
-  const overdueTasks = tasks.filter(isTaskOverdue);
-  const unfinishedTasks = tasks.filter((task) => task.status !== 'completed');
+  const importantTodayTasks = todayTasks.filter(
+    (task) => task.status !== 'completed' && task.matrix_category.startsWith('important_'),
+  );
+
+  const displayName = profile?.nickname ?? session.user.email;
 
   return (
-    <section className="workspace-page">
-      <div className="workspace-heading">
-        <div>
-          <div className="workspace-kicker">
-            <p className="workspace-private-label">
-              <span className="workspace-private-title">私人工作台</span>
-              <span className="workspace-private-desc">：仅自己可见，只有公开笔记是对外展示。</span>
-            </p>
-          </div>
-          <h1>你好，{profile?.nickname ?? session.user.email}</h1>
-          <p className="auth-state">今日 {todayTasks.length} 项，已逾期 {overdueTasks.length} 项，未完成 {unfinishedTasks.length} 项</p>
+    <section className={`workspace-frame workspace-theme-${theme}${isSidebarCollapsed ? ' sidebar-collapsed' : ''}`}>
+      <aside className="workspace-sidebar">
+        <div className="workspace-sidebar-top">
+          <button className="workspace-brand" onClick={() => setActiveTab(tabs.dashboard)} title="日程笔记">
+            <span className="workspace-brand-mark"><NotebookPen size={21} /></span>
+            <span className="workspace-brand-text">日程笔记</span>
+          </button>
+          <button
+            className="sidebar-collapse-button"
+            onClick={() => setIsSidebarCollapsed((collapsed) => !collapsed)}
+            aria-label={isSidebarCollapsed ? '展开侧栏' : '收起侧栏'}
+            title={isSidebarCollapsed ? '展开侧栏' : '收起侧栏'}
+          >
+            {isSidebarCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+          </button>
         </div>
-        <div className="metric-row">
-          <Metric label="笔记" value={notes.length} />
-          <Metric label="任务" value={tasks.length} />
-          <Metric label="公开笔记" value={notes.filter((note) => note.visibility === 'public').length} />
+
+        <nav className="workspace-nav" aria-label="私人工作台导航">
+          <SidebarButton icon={House} label="主页" active={activeTab === tabs.dashboard} onClick={() => setActiveTab(tabs.dashboard)} collapsed={isSidebarCollapsed} />
+          <SidebarButton icon={NotebookPen} label="我的笔记" active={activeTab === tabs.notes} onClick={() => setActiveTab(tabs.notes)} collapsed={isSidebarCollapsed} />
+          <SidebarButton icon={CheckCircle2} label="任务中心" active={activeTab === tabs.tasks} onClick={() => setActiveTab(tabs.tasks)} collapsed={isSidebarCollapsed} />
+          <SidebarButton icon={FileText} label="公开笔记" onClick={onPublicNotes} collapsed={isSidebarCollapsed} />
+        </nav>
+
+        <div className="workspace-sidebar-footer">
+          <button className={activeTab === tabs.profile ? 'profile-entry active' : 'profile-entry'} onClick={() => setActiveTab(tabs.profile)} title="个人设置与主题">
+            <span className="profile-avatar">{displayName.slice(0, 2).toUpperCase()}</span>
+            <span className="profile-entry-copy">
+              <strong>{displayName}</strong>
+              <small><Settings2 size={13} /> 个人设置与主题</small>
+            </span>
+          </button>
+          <button className="sidebar-signout" onClick={onSignOut} title="退出登录" aria-label="退出登录">
+            <LogOut size={17} />
+          </button>
         </div>
+      </aside>
+
+      <div className="workspace-content">
+        {activeTab === tabs.dashboard && (
+          <header className="workspace-heading dashboard-heading">
+            <div>
+              <h1 className="dashboard-greeting">
+                <span>{getGreeting()}</span>
+                <span className="greeting-wave" aria-hidden="true">👋</span>
+              </h1>
+              <p className="auth-state dashboard-date-line">
+                今天是 {formatFullDate()}。你今天有 <strong>{importantTodayTasks.length} 个重要任务</strong> 待办。
+              </p>
+            </div>
+          </header>
+        )}
+
+        {activeTab !== tabs.dashboard && (
+          <header className="workspace-heading compact-heading">
+            <div>
+              <p className="workspace-eyebrow">私人工作台</p>
+              <h1>{activeTab === tabs.notes ? '我的笔记' : activeTab === tabs.tasks ? '任务中心' : '个人设置'}</h1>
+              <p className="auth-state">
+                {activeTab === tabs.tasks && `今天有 ${todayTasks.length} 项任务，任务列表、日历和四象限都集中在这里。`}
+                {activeTab === tabs.notes && `共 ${notes.length} 篇笔记，记录想法并决定内容是私密还是公开。`}
+                {activeTab === tabs.profile && '管理昵称与工作台主题。'}
+              </p>
+            </div>
+          </header>
+        )}
+
+        {message && <p className="form-message global-message">{message}</p>}
+        {isLoading && <p className="form-message global-message">正在读取数据...</p>}
+
+        {activeTab === tabs.dashboard && (
+          <Dashboard notes={notes} tasks={tasks} onOpenTasks={() => setActiveTab(tabs.tasks)} onOpenNotes={() => setActiveTab(tabs.notes)} />
+        )}
+        {activeTab === tabs.notes && (
+          <NotesPanel session={session} notes={notes} setNotes={setNotes} setMessage={setMessage} />
+        )}
+        {activeTab === tabs.tasks && (
+          <TasksPanel session={session} tasks={tasks} setTasks={setTasks} setMessage={setMessage} />
+        )}
+        {activeTab === tabs.profile && (
+          <ProfilePanel
+            session={session}
+            profile={profile}
+            onProfileChange={onProfileChange}
+            setMessage={setMessage}
+            theme={theme}
+            setTheme={setTheme}
+          />
+        )}
       </div>
-
-      <div className="tab-bar">
-        <TabButton icon={LayoutDashboard} label="主页" value={tabs.dashboard} activeTab={activeTab} onClick={setActiveTab} />
-        <TabButton icon={NotebookPen} label="笔记" value={tabs.notes} activeTab={activeTab} onClick={setActiveTab} />
-        <TabButton icon={ListTodo} label="任务" value={tabs.tasks} activeTab={activeTab} onClick={setActiveTab} />
-      </div>
-
-      {message && <p className="form-message global-message">{message}</p>}
-      {isLoading && <p className="form-message global-message">正在读取数据...</p>}
-
-      {activeTab === tabs.dashboard && <Dashboard notes={notes} tasks={tasks} />}
-      {activeTab === tabs.notes && (
-        <NotesPanel session={session} notes={notes} setNotes={setNotes} setMessage={setMessage} />
-      )}
-      {activeTab === tabs.tasks && (
-        <TasksPanel session={session} tasks={tasks} setTasks={setTasks} setMessage={setMessage} />
-      )}
-      {activeTab === tabs.profile && (
-        <ProfilePanel session={session} profile={profile} onProfileChange={onProfileChange} setMessage={setMessage} />
-      )}
     </section>
+  );
+}
+
+function SidebarButton({ icon: Icon, label, active = false, onClick, collapsed = false }) {
+  return (
+    <button className={active ? 'sidebar-nav-button active' : 'sidebar-nav-button'} onClick={onClick} title={collapsed ? label : undefined} aria-label={label}>
+      <Icon size={19} />
+      <span>{label}</span>
+    </button>
   );
 }
 
@@ -593,27 +731,122 @@ function TabButton({ icon: Icon, label, value, activeTab, onClick }) {
   );
 }
 
-function Dashboard({ notes, tasks }) {
+function Dashboard({ notes, tasks, onOpenTasks, onOpenNotes }) {
   const today = getToday();
-  const todayTasks = tasks.filter((task) => task.task_date === today);
-  const overdueTasks = tasks.filter(isTaskOverdue);
-  const importantUrgent = tasks.filter((task) => task.matrix_category === 'important_urgent');
+  const todayTasks = tasks.filter((task) => task.task_date === today).sort(sortTasks);
+  const longTermTasks = tasks
+    .filter((task) => task.task_date > today && task.status !== 'completed')
+    .sort(sortTasks)
+    .slice(0, 3);
+  const recentNotes = notes.slice(0, 3);
+
   return (
-    <div className="dashboard-grid">
-      <InfoCard title="今日安排" items={todayTasks} emptyText="今天还没有任务，可以先添加一个今天要做的事。" />
-      <InfoCard title="已逾期" items={overdueTasks} emptyText="没有逾期任务，状态不错。" />
-      <InfoCard title="重点任务" items={importantUrgent} emptyText="暂时没有重要紧急任务，可以先安心处理计划内的事。" />
-      <div className="panel-card">
-        <h2>进展概览</h2>
-        {statusOptions.map((status) => (
-          <ProgressRow
-            key={status.value}
-            label={status.label}
-            value={tasks.filter((task) => task.status === status.value).length}
-            total={Math.max(tasks.length, 1)}
-          />
-        ))}
+    <div className="dashboard-home">
+      <div className="dashboard-top-grid">
+        <section className="panel-card dashboard-today-card">
+          <div className="dashboard-section-heading">
+            <div>
+              <span className="section-icon section-icon-coral"><Target size={18} /></span>
+              <h2>今日任务</h2>
+            </div>
+            <button className="section-link" onClick={onOpenTasks}>查看全部 <ArrowRight size={15} /></button>
+          </div>
+          <DashboardTaskList tasks={todayTasks} emptyText="今天还没有任务，给自己安排一件最重要的事吧。" />
+        </section>
+
+        <div className="quick-entry-stack">
+          <button className="quick-entry-card quick-task" onClick={onOpenTasks}>
+            <span><Plus size={22} /></span>
+            <strong>新建任务</strong>
+            <small>安排今天或未来要做的事</small>
+          </button>
+          <button className="quick-entry-card quick-note" onClick={onOpenNotes}>
+            <span><NotebookPen size={21} /></span>
+            <strong>写点东西</strong>
+            <small>记录此刻的想法与灵感</small>
+          </button>
+        </div>
       </div>
+
+      <section className="dashboard-section">
+        <div className="dashboard-section-heading outside-card">
+          <div>
+            <span className="section-icon section-icon-purple"><Sparkles size={18} /></span>
+            <h2>长期任务</h2>
+          </div>
+          <button className="section-link" onClick={onOpenTasks}>管理任务 <ArrowRight size={15} /></button>
+        </div>
+        {longTermTasks.length === 0 ? (
+          <div className="panel-card dashboard-empty">暂时没有未来任务，可以在任务中心添加长期计划。</div>
+        ) : (
+          <div className="long-term-grid">
+            {longTermTasks.map((task, index) => (
+              <article className={`long-term-card accent-${index + 1}`} key={task.id}>
+                <div className="long-term-card-top">
+                  <span className="long-term-icon"><Clock3 size={18} /></span>
+                  <span className={`tag matrix-${task.matrix_category}`}>{getLabel(matrixOptions, task.matrix_category)}</span>
+                </div>
+                <h3>{task.title}</h3>
+                <p>{task.description || '保持推进，一点点完成这个计划。'}</p>
+                <div className="long-term-meta">
+                  <strong>{getLabel(statusOptions, task.status)}</strong>
+                  <span>{formatDate(task.task_date)}</span>
+                </div>
+                <div className="progress-track"><div style={{ width: task.status === 'in_progress' ? '60%' : task.status === 'stalled' ? '24%' : '12%' }} /></div>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="dashboard-section">
+        <div className="dashboard-section-heading outside-card">
+          <div>
+            <span className="section-icon section-icon-blue"><Clock3 size={18} /></span>
+            <h2>最近笔记</h2>
+          </div>
+          <button className="section-link" onClick={onOpenNotes}>全部笔记 <ArrowRight size={15} /></button>
+        </div>
+        {recentNotes.length === 0 ? (
+          <div className="panel-card dashboard-empty">还没有笔记，点击“写点东西”记录第一条内容。</div>
+        ) : (
+          <div className="recent-notes-grid">
+            {recentNotes.map((note, index) => (
+              <button className={`recent-note-card note-color-${index + 1}`} key={note.id} onClick={onOpenNotes}>
+                <span className="note-color-block">
+                  <span className="note-cover-icon" aria-hidden="true">{['📝', '💡', '📚'][index % 3]}</span>
+                  <span className={note.visibility === 'public' ? 'note-visibility-pill public' : 'note-visibility-pill'}>
+                    {note.visibility === 'public' ? '公开' : '私密'}
+                  </span>
+                </span>
+                <strong>{note.title}</strong>
+                <small>{new Date(note.created_at).toLocaleDateString('zh-CN')} · 最近编辑</small>
+              </button>
+            ))}
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function DashboardTaskList({ tasks, emptyText }) {
+  if (tasks.length === 0) return <p className="dashboard-empty-copy">{emptyText}</p>;
+
+  return (
+    <div className="dashboard-task-list">
+      {tasks.slice(0, 4).map((task) => (
+        <div className={`dashboard-task-row matrix-row-${task.matrix_category}`} key={task.id}>
+          <span className={task.status === 'completed' ? 'dashboard-check completed' : 'dashboard-check'}>
+            <CheckCircle2 size={18} />
+          </span>
+          <div>
+            <strong>{task.title}</strong>
+            <span className={`tag matrix-${task.matrix_category}`}>{getLabel(matrixOptions, task.matrix_category)}</span>
+          </div>
+          <small>{formatTime(task.task_time) || getLabel(statusOptions, task.status)}</small>
+        </div>
+      ))}
     </div>
   );
 }
@@ -661,6 +894,7 @@ function NotesPanel({ session, notes, setNotes, setMessage }) {
   const [editForm, setEditForm] = React.useState({ title: '', content: '', visibility: 'private' });
   const [isSaving, setIsSaving] = React.useState(false);
   const [isUpdating, setIsUpdating] = React.useState(false);
+  const [isComposerOpen, setIsComposerOpen] = React.useState(false);
 
   function startEditNote(note) {
     setEditingNoteId(note.id);
@@ -713,6 +947,7 @@ function NotesPanel({ session, notes, setNotes, setMessage }) {
     setTitle('');
     setContent('');
     setVisibility('private');
+    setIsComposerOpen(false);
     setMessage('笔记已保存。');
   }
 
@@ -760,9 +995,24 @@ function NotesPanel({ session, notes, setNotes, setMessage }) {
   }
 
   return (
-    <div className="two-column-layout">
-      <form className="panel-card form-stack" onSubmit={handleCreateNote}>
-        <h2>新增笔记</h2>
+    <div className="notes-page-layout">
+      <div className="page-action-row">
+        <div className="note-filter-pills">
+          <span className="active">全部笔记</span>
+          <span>{notes.filter((note) => note.visibility === 'private').length} 篇私密</span>
+          <span>{notes.filter((note) => note.visibility === 'public').length} 篇公开</span>
+        </div>
+        <button className="workspace-main-action" onClick={() => setIsComposerOpen((open) => !open)}>
+          <Plus size={18} />
+          {isComposerOpen ? '收起编辑器' : '写新笔记'}
+        </button>
+      </div>
+
+      {isComposerOpen && <form className="panel-card form-stack note-composer" onSubmit={handleCreateNote}>
+        <div className="form-card-heading">
+          <span className="section-icon section-icon-blue"><NotebookPen size={18} /></span>
+          <div><h2>写新笔记</h2><p>随手记录，之后也可以继续编辑。</p></div>
+        </div>
         <label htmlFor="note-title">标题</label>
         <input id="note-title" value={title} onChange={(event) => setTitle(event.target.value)} />
         <label htmlFor="note-content">正文</label>
@@ -779,16 +1029,15 @@ function NotesPanel({ session, notes, setNotes, setMessage }) {
           <Plus size={18} />
           {isSaving ? '保存中...' : '保存笔记'}
         </button>
-      </form>
+      </form>}
 
-      <section className="panel-card">
-        <h2>我的笔记</h2>
+      <section className="notes-collection">
         {notes.length === 0 ? (
           <EmptyState text="还没有笔记，可以先写一个想法或记录。" />
         ) : (
-          <div className="card-list">
-            {notes.map((note) => (
-              <article className="item-card" key={note.id}>
+          <div className="notes-card-grid">
+            {notes.map((note, index) => (
+              <article className={`item-card note-library-card note-accent-${(index % 4) + 1}`} key={note.id}>
                 {editingNoteId === note.id ? (
                   <form className="form-stack edit-note-form" onSubmit={(event) => handleUpdateNote(event, note)}>
                     <label htmlFor={`edit-note-title-${note.id}`}>标题</label>
@@ -825,6 +1074,7 @@ function NotesPanel({ session, notes, setNotes, setMessage }) {
                   </form>
                 ) : (
                   <>
+                    <span className="note-card-cover" />
                     <div className="item-top">
                       <h3>{note.title}</h3>
                       {confirmingDeleteNoteId === note.id ? (
@@ -877,6 +1127,7 @@ function TasksPanel({ session, tasks, setTasks, setMessage }) {
   const [matrixFilter, setMatrixFilter] = React.useState('all');
   const [activeTaskView, setActiveTaskView] = React.useState(taskViews.list);
   const [isSaving, setIsSaving] = React.useState(false);
+  const [isCreateOpen, setIsCreateOpen] = React.useState(false);
 
   function updateForm(key, value) {
     setForm((currentForm) => ({ ...currentForm, [key]: value }));
@@ -911,6 +1162,7 @@ function TasksPanel({ session, tasks, setTasks, setMessage }) {
       matrix_category: 'important_not_urgent',
       status: 'not_started',
     });
+    setIsCreateOpen(false);
     setMessage('任务已保存到列表。');
   }
 
@@ -918,78 +1170,49 @@ function TasksPanel({ session, tasks, setTasks, setMessage }) {
   const emptyText = getTaskListEmptyText(statusFilter, matrixFilter);
 
   return (
-    <>
-      <div className="tab-bar task-view-tabs">
-        <TabButton icon={ListTodo} label="列表" value={taskViews.list} activeTab={activeTaskView} onClick={setActiveTaskView} />
-        <TabButton icon={CalendarDays} label="日历" value={taskViews.calendar} activeTab={activeTaskView} onClick={setActiveTaskView} />
-        <TabButton icon={Database} label="四象限" value={taskViews.matrix} activeTab={activeTaskView} onClick={setActiveTaskView} />
+    <div className="tasks-page-layout">
+      <div className="task-toolbar">
+        <div className="task-view-switcher">
+          <TabButton icon={ListTodo} label="任务列表" value={taskViews.list} activeTab={activeTaskView} onClick={setActiveTaskView} />
+          <TabButton icon={CalendarDays} label="日历视图" value={taskViews.calendar} activeTab={activeTaskView} onClick={setActiveTaskView} />
+          <TabButton icon={Database} label="四象限矩阵" value={taskViews.matrix} activeTab={activeTaskView} onClick={setActiveTaskView} />
+        </div>
+        <button className="workspace-main-action" onClick={() => setIsCreateOpen((open) => !open)}>
+          <Plus size={18} />
+          {isCreateOpen ? '收起表单' : '新建任务'}
+        </button>
       </div>
 
-      {activeTaskView === taskViews.list && (
-        <div className="two-column-layout">
-          <form className="panel-card form-stack" onSubmit={handleCreateTask}>
-            <h2>新增任务</h2>
-            <label htmlFor="task-title">任务标题</label>
-            <input id="task-title" value={form.title} onChange={(event) => updateForm('title', event.target.value)} required />
-            <label htmlFor="task-description">备注</label>
-            <textarea
-              id="task-description"
-              rows={4}
-              value={form.description}
-              onChange={(event) => updateForm('description', event.target.value)}
-            />
-            <div className="form-grid">
-              <label>
-                重要紧急程度
-                <select id="task-matrix" value={form.matrix_category} onChange={(event) => updateForm('matrix_category', event.target.value)}>
-                  {matrixOptions.map((option) => (
-                    <option value={option.value} key={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                进展状态
-                <select id="task-status" value={form.status} onChange={(event) => updateForm('status', event.target.value)}>
-                  {statusOptions.map((option) => (
-                    <option value={option.value} key={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-            <div className="form-grid">
-              <label>
-                日期
-                <input type="date" value={form.task_date} onChange={(event) => updateForm('task_date', event.target.value)} required />
-              </label>
-              <label>
-                时间
-                <input type="time" value={form.task_time} onChange={(event) => updateForm('task_time', event.target.value)} />
-              </label>
-            </div>
+      {isCreateOpen && (
+        <form className="panel-card form-stack task-composer" onSubmit={handleCreateTask}>
+          <div className="form-card-heading">
+            <span className="section-icon section-icon-coral"><CheckCircle2 size={18} /></span>
+            <div><h2>新建任务</h2><p>设置日期、进展和重要紧急程度。</p></div>
+          </div>
+          <div className="task-composer-grid">
+            <label className="wide-field">任务标题<input id="task-title" value={form.title} onChange={(event) => updateForm('title', event.target.value)} required /></label>
+            <label className="wide-field">备注<textarea id="task-description" rows={3} value={form.description} onChange={(event) => updateForm('description', event.target.value)} /></label>
+            <label>重要紧急程度<select id="task-matrix" value={form.matrix_category} onChange={(event) => updateForm('matrix_category', event.target.value)}>{matrixOptions.map((option) => <option value={option.value} key={option.value}>{option.label}</option>)}</select></label>
+            <label>进展状态<select id="task-status" value={form.status} onChange={(event) => updateForm('status', event.target.value)}>{statusOptions.map((option) => <option value={option.value} key={option.value}>{option.label}</option>)}</select></label>
+            <label>日期<input type="date" value={form.task_date} onChange={(event) => updateForm('task_date', event.target.value)} required /></label>
+            <label>时间<input type="time" value={form.task_time} onChange={(event) => updateForm('task_time', event.target.value)} /></label>
+          </div>
+          <div className="task-composer-actions">
             <div className="quick-date-row" aria-label="快捷日期">
-              <button type="button" onClick={() => updateForm('task_date', getRelativeDate(0))}>
-                今天
-              </button>
-              <button type="button" onClick={() => updateForm('task_date', getRelativeDate(1))}>
-                明天
-              </button>
-              <button type="button" onClick={() => updateForm('task_date', getRelativeDate(2))}>
-                后天
-              </button>
+              <button type="button" onClick={() => updateForm('task_date', getRelativeDate(0))}>今天</button>
+              <button type="button" onClick={() => updateForm('task_date', getRelativeDate(1))}>明天</button>
+              <button type="button" onClick={() => updateForm('task_date', getRelativeDate(2))}>后天</button>
             </div>
-            <button className="primary-button large" disabled={isSaving}>
-              <Plus size={18} />
-              {isSaving ? '保存中...' : '保存任务'}
-            </button>
-          </form>
+            <button className="primary-button large" disabled={isSaving}><Plus size={18} />{isSaving ? '保存中...' : '保存任务'}</button>
+          </div>
+        </form>
+      )}
 
-          <section className="panel-card">
+      {activeTaskView === taskViews.list && (
+        <div className="task-list-layout">
+          <section className="panel-card task-list-panel">
             <div className="panel-heading-row">
-              <h2>任务列表</h2>
+              <div><h2>全部任务</h2><p className="muted-text">按状态和优先级快速整理。</p></div>
               <div className="task-filter-row">
                 <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="筛选任务状态">
                   <option value="all">状态：全部</option>
@@ -1016,7 +1239,7 @@ function TasksPanel({ session, tasks, setTasks, setMessage }) {
 
       {activeTaskView === taskViews.calendar && <CalendarPanel tasks={tasks} />}
       {activeTaskView === taskViews.matrix && <MatrixPanel tasks={tasks} setTasks={setTasks} setMessage={setMessage} />}
-    </>
+    </div>
   );
 }
 
@@ -1034,6 +1257,7 @@ function TaskList({ tasks, setTasks, setMessage, variant = 'default', emptyText 
 
 function TaskCard({ task, setTasks, setMessage, compact = false, variant = 'default' }) {
   const [isEditing, setIsEditing] = React.useState(false);
+  const [isCompleting, setIsCompleting] = React.useState(false);
   const [editForm, setEditForm] = React.useState({
     title: task.title,
     description: task.description ?? '',
@@ -1079,7 +1303,27 @@ function TaskCard({ task, setTasks, setMessage, compact = false, variant = 'defa
   }
 
   async function handleToggleComplete() {
-    await handleStatusChange(task.status === 'completed' ? 'in_progress' : 'completed');
+    if (task.status === 'completed') {
+      await handleStatusChange('in_progress');
+      return;
+    }
+
+    setIsCompleting(true);
+    const [{ error }] = await Promise.all([
+      supabase.from('tasks').update({ status: 'completed' }).eq('id', task.id),
+      new Promise((resolve) => window.setTimeout(resolve, 500)),
+    ]);
+
+    if (error) {
+      setIsCompleting(false);
+      setMessage?.(`更新任务失败：${error.message}`);
+      return;
+    }
+
+    setTasks?.((currentTasks) =>
+      currentTasks.map((item) => (item.id === task.id ? { ...item, status: 'completed' } : item)).sort(sortTasks),
+    );
+    setMessage?.('任务已完成。');
   }
 
   async function handleMatrixChange(matrixCategory) {
@@ -1142,7 +1386,7 @@ function TaskCard({ task, setTasks, setMessage, compact = false, variant = 'defa
   const isMatrixView = variant === 'matrix';
 
   return (
-    <article className={[task.status === 'completed' ? 'item-card completed' : 'item-card', isTaskOverdue(task) ? 'task-overdue' : ''].filter(Boolean).join(' ')}>
+    <article className={[task.status === 'completed' ? 'item-card completed' : 'item-card', isTaskOverdue(task) ? 'task-overdue' : '', `task-accent-${task.matrix_category}`, isMatrixView ? 'matrix-task-card' : '', isCompleting ? 'task-completing' : ''].filter(Boolean).join(' ')}>
       {isEditing ? (
         <form className="form-stack edit-task-form" onSubmit={handleUpdateTask}>
           <label htmlFor={`edit-task-title-${task.id}`}>任务标题</label>
@@ -1212,90 +1456,55 @@ function TaskCard({ task, setTasks, setMessage, compact = false, variant = 'defa
             <button className="text-button" type="button" onClick={cancelEditTask} disabled={isUpdating}>
               取消
             </button>
+            {isConfirmingDelete ? (
+              <>
+                <button className="danger-confirm-button" type="button" onClick={handleDeleteTask}>确认删除</button>
+                <button className="cancel-confirm-button" type="button" onClick={() => setIsConfirmingDelete(false)}>保留任务</button>
+              </>
+            ) : (
+              <button className="edit-form-delete" type="button" onClick={() => setIsConfirmingDelete(true)}>
+                <Trash2 size={15} /> 删除任务
+              </button>
+            )}
           </div>
         </form>
       ) : (
         <>
           <div className="item-top">
             <div className="task-title-row">
-              {isMatrixView ? (
-                <select
-                  className="task-title-status-select"
-                  value={task.status}
-                  onChange={(event) => handleStatusChange(event.target.value)}
-                  aria-label="更新任务状态"
-                >
-                  {statusOptions.map((option) => (
-                    <option value={option.value} key={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              ) : !compact && (
-                <button
-                  className={task.status === 'completed' ? 'complete-toggle-button active' : 'complete-toggle-button'}
-                  onClick={handleToggleComplete}
-                  aria-label={task.status === 'completed' ? '恢复为进行中' : '标记已完成'}
-                  title={task.status === 'completed' ? '恢复为进行中' : '标记已完成'}
-                >
-                  <CheckCircle2 size={17} />
-                </button>
-              )}
+              <span className="task-card-symbol"><Target size={17} /></span>
               <h3>{task.title}</h3>
             </div>
-            {!compact && (
-              isConfirmingDelete ? (
-                <div className="confirm-delete">
-                  <span>删除这条任务？</span>
-                  <button className="danger-confirm-button" onClick={handleDeleteTask}>
-                    删除
-                  </button>
-                  <button className="cancel-confirm-button" onClick={() => setIsConfirmingDelete(false)}>
-                    取消
-                  </button>
-                </div>
-              ) : (
-                <div className="item-actions">
-                  <button
-                    className="small-action-button"
-                    onClick={() => {
-                      setIsEditing(true);
-                      setIsConfirmingDelete(false);
-                    }}
-                    aria-label="编辑任务"
-                    title="编辑任务"
-                  >
-                    <Pencil size={15} />
-                  </button>
-                  <button className="delete-button" onClick={() => setIsConfirmingDelete(true)} aria-label="删除任务" title="删除任务">
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-              )
-            )}
+            {!compact && <div className="item-actions task-card-actions">
+              <button
+                className="task-edit-button"
+                onClick={() => {
+                  setIsEditing(true);
+                  setIsConfirmingDelete(false);
+                }}
+                disabled={isCompleting}
+                aria-label="编辑任务"
+                title="编辑任务"
+              >
+                <Pencil size={17} />
+              </button>
+              <button
+                className={task.status === 'completed' || isCompleting ? 'task-complete-checkbox checked' : 'task-complete-checkbox'}
+                onClick={handleToggleComplete}
+                disabled={isCompleting}
+                aria-label={task.status === 'completed' ? '恢复为进行中' : '标记已完成'}
+                title={task.status === 'completed' ? '恢复为进行中' : '完成任务'}
+              >
+                {(task.status === 'completed' || isCompleting) && <CheckCircle2 size={18} />}
+              </button>
+            </div>}
           </div>
           {task.description && <p>{task.description}</p>}
           <div className="tag-row">
+            <span className={`tag matrix-${task.matrix_category}`}>{getLabel(matrixOptions, task.matrix_category)}</span>
             <span className={timingInfo.className}>{timingInfo.label}</span>
+            <span className={`tag task-status-tag status-${task.status}`}>{getLabel(statusOptions, task.status)}</span>
           </div>
-          {!compact && !isMatrixView && (
-            <div className="inline-controls">
-              <select value={task.status} onChange={(event) => handleStatusChange(event.target.value)}>
-                {statusOptions.map((option) => (
-                  <option value={option.value} key={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-              <select value={task.matrix_category} onChange={(event) => handleMatrixChange(event.target.value)}>
-                {matrixOptions.map((option) => (
-                  <option value={option.value} key={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
         </>
       )}
     </article>
@@ -1323,10 +1532,13 @@ function CalendarPanel({ tasks }) {
   return (
     <div className="calendar-layout">
       <section className="panel-card">
-        <div className="panel-heading-row">
-          <button className="text-button" onClick={() => shiftMonth(-1)}>上个月</button>
-          <h2>{currentDate.getFullYear()} 年 {currentDate.getMonth() + 1} 月</h2>
-          <button className="text-button" onClick={() => shiftMonth(1)}>下个月</button>
+        <div className="calendar-toolbar">
+          <div className="calendar-title-group">
+            <h2>{currentDate.getMonth() + 1}月 <span>{currentDate.getFullYear()}</span></h2>
+            <button className="calendar-arrow" onClick={() => shiftMonth(-1)} aria-label="上个月">‹</button>
+            <button className="calendar-arrow" onClick={() => shiftMonth(1)} aria-label="下个月">›</button>
+          </div>
+          <button className="text-button" onClick={() => setCurrentDate(new Date())}>回到今天</button>
         </div>
         <div className="calendar-grid">
           {['一', '二', '三', '四', '五', '六', '日'].map((day) => (
@@ -1348,7 +1560,7 @@ function CalendarPanel({ tasks }) {
               >
                 <strong>{day.dayNumber}</strong>
                 {dayTasks.slice(0, 2).map((task) => (
-                  <span key={task.id}>{task.title}</span>
+                  <span className={`calendar-event event-${task.matrix_category}`} key={task.id}>{task.title}</span>
                 ))}
                 {dayTasks.length > 2 && <small>+{dayTasks.length - 2}</small>}
               </div>
@@ -1364,13 +1576,13 @@ function MatrixPanel({ tasks, setTasks, setMessage }) {
   return (
     <div className="matrix-grid">
       {matrixOptions.map((matrix) => {
-        const matrixTasks = tasks.filter((task) => task.matrix_category === matrix.value);
+        const matrixTasks = tasks.filter((task) => task.matrix_category === matrix.value && task.status !== 'completed');
         return (
           <section className="panel-card matrix-cell" key={matrix.value}>
             <div className="matrix-heading">
               <div>
-                <h2>{matrix.label}</h2>
-                <p>{matrix.hint}</p>
+                <span className={`matrix-heading-icon icon-${matrix.value}`}><MatrixVisualIcon value={matrix.value} /></span>
+                <div><h2>{matrix.label}</h2><p>{matrix.hint}</p></div>
               </div>
               <span>{matrixTasks.length}</span>
             </div>
@@ -1388,7 +1600,14 @@ function MatrixPanel({ tasks, setTasks, setMessage }) {
   );
 }
 
-function ProfilePanel({ session, profile, onProfileChange, setMessage }) {
+function MatrixVisualIcon({ value }) {
+  if (value === 'important_urgent') return <Flame size={18} />;
+  if (value === 'important_not_urgent') return <Star size={18} />;
+  if (value === 'urgent_not_important') return <Zap size={18} />;
+  return <Clock3 size={18} />;
+}
+
+function ProfilePanel({ session, profile, onProfileChange, setMessage, theme, setTheme }) {
   const [nickname, setNickname] = React.useState(profile?.nickname ?? '');
   const [isSaving, setIsSaving] = React.useState(false);
 
@@ -1416,8 +1635,9 @@ function ProfilePanel({ session, profile, onProfileChange, setMessage }) {
   }
 
   return (
-    <section className="panel-card profile-panel">
-      <h2>个人设置</h2>
+    <section className="profile-settings-grid">
+      <div className="panel-card profile-panel">
+      <h2>个人资料</h2>
       <div className="profile-summary">
         <div>
           <span>当前邮箱</span>
@@ -1436,6 +1656,29 @@ function ProfilePanel({ session, profile, onProfileChange, setMessage }) {
           {isSaving ? '保存中...' : '保存昵称'}
         </button>
       </form>
+      </div>
+
+      <div className="panel-card theme-panel">
+        <div className="theme-panel-heading">
+          <span className="section-icon section-icon-purple"><Palette size={18} /></span>
+          <div>
+            <h2>工作台主题</h2>
+            <p className="muted-text">只改变登录后的私人工作台。</p>
+          </div>
+        </div>
+        <div className="theme-options">
+          <button className={theme === 'default' ? 'theme-option active' : 'theme-option'} onClick={() => setTheme('default')}>
+            <span className="theme-preview default-preview"><i /><i /><i /></span>
+            <span><strong>轻盈多彩</strong><small>浅灰背景、白色卡片和彩色点缀</small></span>
+            {theme === 'default' && <CheckCircle2 size={19} />}
+          </button>
+          <button className={theme === 'mint' ? 'theme-option active' : 'theme-option'} onClick={() => setTheme('mint')}>
+            <span className="theme-preview mint-preview"><i /><i /><i /></span>
+            <span><strong>薄荷绿</strong><small>保留原有淡绿色背景和绿色按钮</small></span>
+            {theme === 'mint' && <CheckCircle2 size={19} />}
+          </button>
+        </div>
+      </div>
     </section>
   );
 }
@@ -1591,9 +1834,16 @@ function PublicNotesPage({ session, profile, onLogin }) {
 
   return (
     <section className="public-page">
-      <div className="section-heading">
-        <p className="eyebrow">公开笔记</p>
-        <h1>大家公开分享的笔记</h1>
+      <div className="public-hero">
+        <div>
+          <p className="public-kicker"><Sparkles size={15} /> 灵感广场</p>
+          <h1>公开笔记</h1>
+          <p>看看大家最近记录的想法，也可以留下你的回应。</p>
+        </div>
+        <div className="public-summary">
+          <strong>{notes.length}</strong>
+          <span>篇公开分享</span>
+        </div>
       </div>
       {message && <p className="form-message global-message">{message}</p>}
       {isLoading ? (
@@ -1602,14 +1852,19 @@ function PublicNotesPage({ session, profile, onLogin }) {
         <EmptyState text="还没有公开笔记，公开后的笔记会显示在这里。" />
       ) : (
         <div className="public-grid">
-          {notes.map((note) => (
-            <article className="item-card" key={note.id}>
-              <span className="tag public">{profiles[note.user_id] ?? '匿名用户'}</span>
-              <h3>{note.title}</h3>
-              {note.content && <p>{note.content}</p>}
-              <div className="tag-row">
-                <span>{new Date(note.created_at).toLocaleString('zh-CN')}</span>
+          {notes.map((note, index) => (
+            <article className={`public-note-card public-note-accent-${(index % 4) + 1}`} key={note.id}>
+              <div className="public-note-cover">
+                <span className="public-note-emoji" aria-hidden="true">{['📝', '💡', '📚', '✨'][index % 4]}</span>
+                <span className="public-note-label">公开笔记</span>
               </div>
+              <div className="public-note-body">
+                <div className="public-note-meta">
+                  <span className="public-author">{profiles[note.user_id] ?? '匿名用户'}</span>
+                  <span>{new Date(note.created_at).toLocaleDateString('zh-CN')}</span>
+                </div>
+                <h3>{note.title}</h3>
+                {note.content && <p className="public-note-content">{note.content}</p>}
               <CommentsSection
                 comments={commentsByNote[note.id] ?? []}
                 commentsEnabled={commentsEnabled}
@@ -1620,6 +1875,7 @@ function PublicNotesPage({ session, profile, onLogin }) {
                 onDeleteComment={(commentId) => handleDeleteComment(note.id, commentId)}
                 onUpdateComment={(commentId, content) => handleUpdateComment(note.id, commentId, content)}
               />
+              </div>
             </article>
           ))}
         </div>
@@ -1789,7 +2045,7 @@ function getTaskListEmptyText(statusFilter, matrixFilter) {
 function filterTasks(tasks, statusFilter = 'all', matrixFilter = 'all') {
   return tasks.filter((task) => {
     const matchesStatus =
-      statusFilter === 'all' ||
+      (statusFilter === 'all' && task.status !== 'completed') ||
       (statusFilter === 'unfinished' && task.status !== 'completed') ||
       task.status === statusFilter;
     const matchesMatrix = matrixFilter === 'all' || task.matrix_category === matrixFilter;
