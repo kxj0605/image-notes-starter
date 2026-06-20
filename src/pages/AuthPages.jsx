@@ -1,5 +1,5 @@
 import React from 'react';
-import { LogIn, UserPlus } from 'lucide-react';
+import { LockKeyhole, LogIn, ShieldCheck, Sparkles, UserPlus } from 'lucide-react';
 import { isSupabaseConfigured, supabase } from '../supabaseClient';
 
 export function LoginPage({ onRegister, onDone }) {
@@ -55,9 +55,14 @@ export function LoginPage({ onRegister, onDone }) {
   return (
     <section className="auth-page">
       <div className="auth-card">
-        <p className="eyebrow">登录</p>
-        <h1>进入私人工作台</h1>
-        <p className="muted-text">登录后可以继续管理任务、私密笔记、公开笔记和评论。</p>
+        <div className="auth-card-heading">
+          <span className="auth-heading-icon"><LockKeyhole size={22} /></span>
+          <div>
+            <p className="eyebrow"><Sparkles size={15} /> 欢迎回来</p>
+            <h1>进入私人工作台</h1>
+            <p className="muted-text">继续管理你的任务、笔记和生活记录。</p>
+          </div>
+        </div>
         <form className="form-stack" onSubmit={handleSubmit}>
           <label htmlFor="login-email">邮箱</label>
           <input
@@ -86,6 +91,7 @@ export function LoginPage({ onRegister, onDone }) {
         <button className="link-button" onClick={onRegister}>
           还没有账号，去注册
         </button>
+        <p className="auth-trust-note"><ShieldCheck size={15} /> 安全登录到你的私人空间</p>
       </div>
     </section>
   );
@@ -126,9 +132,14 @@ export function RegisterPage({ onLogin, onDone }) {
   return (
     <section className="auth-page">
       <div className="auth-card">
-        <p className="eyebrow">注册</p>
-        <h1>创建你的私人工作台</h1>
-        <p className="muted-text">账号会保存你的任务、笔记、昵称和公开评论记录。</p>
+        <div className="auth-card-heading">
+          <span className="auth-heading-icon"><UserPlus size={22} /></span>
+          <div>
+            <p className="eyebrow"><Sparkles size={15} /> 创建空间</p>
+            <h1>创建你的私人工作台</h1>
+            <p className="muted-text">用一个账号，安放你的任务、笔记和生活记录。</p>
+          </div>
+        </div>
         <form className="form-stack" onSubmit={handleSubmit}>
           <label htmlFor="register-email">邮箱</label>
           <input
@@ -158,6 +169,7 @@ export function RegisterPage({ onLogin, onDone }) {
         <button className="link-button" onClick={onLogin}>
           已经有账号，去登录
         </button>
+        <p className="auth-trust-note"><ShieldCheck size={15} /> 私人内容默认仅自己可见</p>
       </div>
     </section>
   );

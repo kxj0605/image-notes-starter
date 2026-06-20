@@ -117,8 +117,10 @@ function App() {
     <main className={
       currentPage === pages.workspace
         ? 'app-shell workspace-app-shell'
-        : currentPage === pages.publicNotes
+      : currentPage === pages.publicNotes
           ? 'app-shell public-app-shell'
+          : currentPage === pages.login || currentPage === pages.register
+            ? 'app-shell auth-app-shell'
           : currentPage === pages.home
             ? 'app-shell home-app-shell'
             : 'app-shell'
