@@ -1,19 +1,21 @@
 import React from 'react';
 import {
-  CalendarDays,
+  ArrowRight,
   CheckCircle2,
-  Circle,
+  FileText,
+  LockKeyhole,
   LayoutDashboard,
-  ShieldCheck,
+  Sparkles,
   UserPlus,
 } from 'lucide-react';
 
-export function HomePage({ session, onRegister, onWorkspace }) {
+export function HomePage({ session, onRegister, onWorkspace, onPublicNotes }) {
   return (
     <section className="home-grid">
       <div className="hero-copy">
-        <p className="eyebrow">任务与笔记，一个工作台就够了</p>
-        <h1>个人工作台</h1>
+        <p className="eyebrow"><Sparkles size={16} /> 你的数字生活空间</p>
+        <h1>私人工作台</h1>
+        <p className="hero-text">把今天要做的事、随手记下的想法，收进一个安静而有序的个人工作台。</p>
 
         <div className="hero-actions">
           {session ? (
@@ -25,48 +27,49 @@ export function HomePage({ session, onRegister, onWorkspace }) {
             <button className="primary-button large" onClick={onRegister}>
               <UserPlus size={18} />
               免费开始使用
+              <ArrowRight size={17} />
+            </button>
+          )}
+          {!session && (
+            <button className="home-secondary-action" onClick={onPublicNotes}>
+              浏览公开笔记
             </button>
           )}
         </div>
 
-        <p className="privacy-note">
-          <ShieldCheck size={16} />
-          任务默认仅自己可见
-        </p>
+        <div className="hero-benefits" aria-label="产品特点">
+          <span><CheckCircle2 size={16} /> 任务有序</span>
+          <span><FileText size={16} /> 灵感不丢</span>
+          <span><LockKeyhole size={16} /> 默认私密</span>
+        </div>
       </div>
 
-      <div className="tool-preview" aria-label="今天的任务预览">
+      <div className="tool-preview" aria-label="私人工作台锁定预览">
         <div className="preview-topbar">
-          <div>
-            <span className="preview-kicker">今天的任务</span>
-            <h2>今天，先完成这 3 件事</h2>
-          </div>
-          <span className="preview-date">
-            <CalendarDays size={15} /> 6月18日
-          </span>
+          <span className="preview-window-dots" aria-hidden="true"><i /><i /><i /></span>
+          <span className="preview-kicker"><LockKeyhole size={14} /> 私人空间</span>
         </div>
 
-        <div className="preview-progress" aria-label="今日完成进度 33%">
-          <div>
-            <span>今日进度</span>
-            <strong>1 / 3</strong>
+        <div className="preview-canvas">
+          <div className="preview-heading-placeholder" aria-hidden="true">
+            <i />
+            <span />
           </div>
-          <span className="preview-progress-track"><i /></span>
-        </div>
+          <div className="preview-card-placeholders" aria-hidden="true">
+            <span><i /></span>
+            <span><i /></span>
+            <span><i /></span>
+          </div>
 
-        <div className="preview-task-list">
-          <div className="preview-task is-complete">
-            <CheckCircle2 size={19} />
-            <span><strong>整理本周任务</strong><small>已完成</small></span>
-          </div>
-          <div className="preview-task">
-            <Circle size={19} />
-            <span><strong>完成首页排版调整</strong><small>今天 · 重要</small></span>
-            <em>优先</em>
-          </div>
-          <div className="preview-task">
-            <Circle size={19} />
-            <span><strong>记录项目复盘</strong><small>今天 18:00</small></span>
+          <div className="preview-locked">
+            <span className="preview-lock-icon"><LockKeyhole size={25} /></span>
+            <strong>这里是你的私人工作台</strong>
+            <p>登录后才能查看任务、笔记和完成进度。</p>
+            {session ? (
+              <button onClick={onWorkspace}>进入工作台</button>
+            ) : (
+              <button onClick={onRegister}>登录或注册后查看</button>
+            )}
           </div>
         </div>
       </div>
