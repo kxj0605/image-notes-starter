@@ -12,6 +12,7 @@ export const tabs = {
   tasks: 'tasks',
   calendar: 'calendar',
   matrix: 'matrix',
+  publicNotes: 'public-notes',
   profile: 'profile',
 };
 

@@ -292,7 +292,6 @@ function App() {
           initialTab={workspaceTab}
           onProfileChange={setProfile}
           onLogin={() => setCurrentPage(pages.login)}
-          onPublicNotes={() => setCurrentPage(pages.publicNotes)}
           onSignOut={handleSignOut}
         />
       )}
@@ -300,7 +299,7 @@ function App() {
   );
 }
 
-function WorkspacePage({ session, profile, initialTab, onProfileChange, onLogin, onPublicNotes, onSignOut }) {
+function WorkspacePage({ session, profile, initialTab, onProfileChange, onLogin, onSignOut }) {
   const [activeTab, setActiveTab] = React.useState(
     initialTab === tabs.calendar || initialTab === tabs.matrix ? tabs.tasks : initialTab,
   );
@@ -401,7 +400,7 @@ function WorkspacePage({ session, profile, initialTab, onProfileChange, onLogin,
           <SidebarButton icon={House} label="主页" active={activeTab === tabs.dashboard} onClick={() => setActiveTab(tabs.dashboard)} collapsed={isSidebarCollapsed} />
           <SidebarButton icon={NotebookPen} label="我的笔记" active={activeTab === tabs.notes} onClick={() => setActiveTab(tabs.notes)} collapsed={isSidebarCollapsed} />
           <SidebarButton icon={CheckCircle2} label="任务中心" active={activeTab === tabs.tasks} onClick={() => setActiveTab(tabs.tasks)} collapsed={isSidebarCollapsed} />
-          <SidebarButton icon={FileText} label="公开笔记" onClick={onPublicNotes} collapsed={isSidebarCollapsed} />
+          <SidebarButton icon={FileText} label="公开笔记" active={activeTab === tabs.publicNotes} onClick={() => setActiveTab(tabs.publicNotes)} collapsed={isSidebarCollapsed} />
         </nav>
 
         <div className="workspace-sidebar-footer">
@@ -433,7 +432,7 @@ function WorkspacePage({ session, profile, initialTab, onProfileChange, onLogin,
           </header>
         )}
 
-        {activeTab !== tabs.dashboard && (
+        {activeTab !== tabs.dashboard && activeTab !== tabs.publicNotes && (
           <header className="workspace-heading compact-heading">
             <div>
               <p className="workspace-eyebrow">私人工作台</p>
@@ -458,6 +457,9 @@ function WorkspacePage({ session, profile, initialTab, onProfileChange, onLogin,
         )}
         {activeTab === tabs.tasks && (
           <TasksPanel session={session} tasks={tasks} setTasks={setTasks} setMessage={setMessage} />
+        )}
+        {activeTab === tabs.publicNotes && (
+          <PublicNotesPage session={session} profile={profile} onLogin={onLogin} embedded />
         )}
         {activeTab === tabs.profile && (
           <ProfilePanel
@@ -1466,7 +1468,7 @@ function ProfilePanel({ session, profile, onProfileChange, setMessage, theme, se
   );
 }
 
-function PublicNotesPage({ session, profile, onLogin }) {
+function PublicNotesPage({ session, profile, onLogin, embedded = false }) {
   const [notes, setNotes] = React.useState([]);
   const [profiles, setProfiles] = React.useState({});
   const [commentsByNote, setCommentsByNote] = React.useState({});
@@ -1616,7 +1618,7 @@ function PublicNotesPage({ session, profile, onLogin }) {
   }
 
   return (
-    <section className="public-page">
+    <section className={embedded ? 'public-page embedded-public-page' : 'public-page'}>
       <div className="public-hero">
         <div>
           <p className="public-kicker"><Sparkles size={15} /> 灵感广场</p>
