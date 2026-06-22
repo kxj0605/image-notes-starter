@@ -377,8 +377,6 @@ function WorkspacePage({ session, profile, initialTab, onProfileChange, onLogin,
     (task) => task.status !== 'completed' && task.matrix_category.startsWith('important_'),
   );
 
-  const displayName = profile?.nickname ?? session.user.email;
-
   return (
     <section className={`workspace-frame workspace-theme-${theme}${isSidebarCollapsed ? ' sidebar-collapsed' : ''}`}>
       <aside className="workspace-sidebar">
@@ -404,15 +402,14 @@ function WorkspacePage({ session, profile, initialTab, onProfileChange, onLogin,
         </nav>
 
         <div className="workspace-sidebar-footer">
-          <button className={activeTab === tabs.profile ? 'profile-entry active' : 'profile-entry'} onClick={() => setActiveTab(tabs.profile)} title="个人设置与主题">
-            <span className="profile-avatar">{displayName.slice(0, 2).toUpperCase()}</span>
-            <span className="profile-entry-copy">
-              <strong>{displayName}</strong>
-              <small><Settings2 size={13} /> 个人设置与主题</small>
-            </span>
-          </button>
-          <button className="sidebar-signout" onClick={onSignOut} title="退出登录" aria-label="退出登录">
-            <LogOut size={17} />
+          <button
+            className={activeTab === tabs.profile ? 'sidebar-settings-entry active' : 'sidebar-settings-entry'}
+            onClick={() => setActiveTab(tabs.profile)}
+            title={isSidebarCollapsed ? '设置' : undefined}
+            aria-label="设置"
+          >
+            <Settings2 size={19} />
+            <span>设置</span>
           </button>
         </div>
       </aside>
@@ -435,13 +432,13 @@ function WorkspacePage({ session, profile, initialTab, onProfileChange, onLogin,
         {activeTab !== tabs.dashboard && activeTab !== tabs.publicNotes && (
           <header className="workspace-heading compact-heading">
             <div>
-              <p className="workspace-eyebrow">私人工作台</p>
-              <h1>{activeTab === tabs.notes ? '我的笔记' : activeTab === tabs.tasks ? '任务中心' : '个人设置'}</h1>
-              <p className="auth-state">
-                {activeTab === tabs.tasks && `今天有 ${todayTasks.length} 项任务，任务列表、日历和四象限都集中在这里。`}
-                {activeTab === tabs.notes && `共 ${notes.length} 篇笔记，记录想法并决定内容是私密还是公开。`}
-                {activeTab === tabs.profile && '管理昵称与工作台主题。'}
-              </p>
+              <h1>{activeTab === tabs.notes ? '我的笔记' : activeTab === tabs.tasks ? '任务中心' : '设置'}</h1>
+              {activeTab !== tabs.profile && (
+                <p className="auth-state">
+                  {activeTab === tabs.tasks && `今天有 ${todayTasks.length} 项任务，任务列表、日历和四象限都集中在这里。`}
+                  {activeTab === tabs.notes && `共 ${notes.length} 篇笔记，记录想法并决定内容是私密还是公开。`}
+                </p>
+              )}
             </div>
           </header>
         )}
@@ -469,6 +466,7 @@ function WorkspacePage({ session, profile, initialTab, onProfileChange, onLogin,
             setMessage={setMessage}
             theme={theme}
             setTheme={setTheme}
+            onSignOut={onSignOut}
           />
         )}
       </div>
@@ -1392,9 +1390,10 @@ function MatrixVisualIcon({ value }) {
   return <Clock3 size={18} />;
 }
 
-function ProfilePanel({ session, profile, onProfileChange, setMessage, theme, setTheme }) {
+function ProfilePanel({ session, profile, onProfileChange, setMessage, theme, setTheme, onSignOut }) {
   const [nickname, setNickname] = React.useState(profile?.nickname ?? '');
   const [isSaving, setIsSaving] = React.useState(false);
+  const [isNicknameSaved, setIsNicknameSaved] = React.useState(false);
 
   React.useEffect(() => {
     setNickname(profile?.nickname ?? '');
@@ -1416,8 +1415,11 @@ function ProfilePanel({ session, profile, onProfileChange, setMessage, theme, se
     }
 
     onProfileChange(data);
+    setIsNicknameSaved(true);
     setMessage('昵称已更新。');
   }
+
+  const isNicknameUnchanged = nickname.trim() === (profile?.nickname ?? '').trim();
 
   return (
     <section className="profile-settings-grid">
@@ -1434,13 +1436,26 @@ function ProfilePanel({ session, profile, onProfileChange, setMessage, theme, se
         </div>
       </div>
       <p className="muted-text">公开笔记和评论会显示昵称，不显示完整邮箱。</p>
-      <form className="form-stack" onSubmit={handleSave}>
+      <form className="profile-nickname-form" onSubmit={handleSave}>
         <label htmlFor="nickname">昵称</label>
-        <input id="nickname" value={nickname} onChange={(event) => setNickname(event.target.value)} />
-        <button className="primary-button large" disabled={isSaving}>
-          {isSaving ? '保存中...' : '保存昵称'}
-        </button>
+        <div className="profile-nickname-row">
+          <input
+            id="nickname"
+            value={nickname}
+            onChange={(event) => {
+              setNickname(event.target.value);
+              setIsNicknameSaved(false);
+            }}
+          />
+          <button className="nickname-save-button" disabled={isSaving || isNicknameUnchanged}>
+            {isSaving ? '保存中...' : isNicknameSaved ? '已保存' : '保存修改'}
+          </button>
+        </div>
       </form>
+      <button className="profile-signout-button" onClick={onSignOut}>
+        <LogOut size={17} />
+        退出登录
+      </button>
       </div>
 
       <div className="panel-card theme-panel">
@@ -1813,7 +1828,6 @@ function CommentsSection({ comments, commentsEnabled, profiles, session, onLogin
 function EmptyState({ text }) {
   return (
     <div className="empty-state">
-      <Database size={22} />
       <p>{text}</p>
     </div>
   );

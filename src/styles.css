@@ -2029,6 +2029,8 @@ button {
 
 /* Logged-in workspace */
 .workspace-app-shell {
+  width: 100%;
+  margin: 0;
   padding: 0;
 }
 
@@ -2095,6 +2097,7 @@ button {
 
 .workspace-sidebar {
   position: sticky;
+  left: 0;
   top: 0;
   display: flex;
   height: 100vh;
@@ -2200,12 +2203,31 @@ button {
 }
 
 .workspace-sidebar-footer {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 40px;
-  gap: 8px;
+  display: block;
   margin-top: auto;
   border-top: 1px solid var(--ws-border);
-  padding-top: 18px;
+  padding-top: 16px;
+}
+
+.sidebar-settings-entry {
+  display: flex;
+  width: 100%;
+  min-height: 48px;
+  align-items: center;
+  gap: 12px;
+  border-radius: 16px;
+  padding: 0 16px;
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-weight: 700;
+  text-align: left;
+}
+
+.sidebar-settings-entry:hover,
+.sidebar-settings-entry.active {
+  background: var(--color-info-bg);
+  color: var(--color-info);
 }
 
 .profile-entry {
@@ -2301,7 +2323,8 @@ button {
 
 .sidebar-collapsed .workspace-brand-text,
 .sidebar-collapsed .sidebar-nav-button span,
-.sidebar-collapsed .profile-entry-copy {
+.sidebar-collapsed .profile-entry-copy,
+.sidebar-collapsed .sidebar-settings-entry span {
   display: none;
 }
 
@@ -2318,8 +2341,11 @@ button {
 
 .sidebar-collapsed .workspace-sidebar-footer {
   width: 100%;
-  grid-template-columns: 1fr;
-  justify-items: center;
+}
+
+.sidebar-collapsed .sidebar-settings-entry {
+  justify-content: center;
+  padding: 0;
 }
 
 .sidebar-collapsed .profile-entry {
@@ -2329,6 +2355,82 @@ button {
 
 .sidebar-collapsed .sidebar-signout {
   display: grid;
+}
+
+.profile-signout-button {
+  display: inline-flex;
+  width: 100%;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 24px;
+  border: 1px solid rgba(217, 54, 85, 0.12);
+  border-radius: 12px;
+  padding: 0 16px;
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.profile-nickname-form {
+  display: grid;
+  gap: 8px;
+}
+
+.profile-nickname-form > label {
+  color: var(--color-text-primary);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.profile-nickname-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.profile-nickname-row input {
+  min-width: 0;
+  min-height: 44px;
+  border: 1px solid var(--color-line-soft);
+  border-radius: 16px;
+  padding: 0 16px;
+  background: var(--color-bg-card);
+  color: var(--color-text-primary);
+}
+
+.nickname-save-button {
+  min-width: 88px;
+  min-height: 44px;
+  border: 1px solid var(--color-line-soft);
+  border-radius: 12px;
+  padding: 0 12px;
+  background: var(--color-bg-glass);
+  color: var(--color-text-secondary);
+  box-shadow: none;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.nickname-save-button:not(:disabled):hover {
+  border-color: rgba(57, 118, 213, 0.14);
+  background: var(--color-info-bg);
+  color: var(--color-info);
+}
+
+.nickname-save-button:disabled {
+  border-color: transparent;
+  background: rgba(152, 162, 179, 0.1);
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+}
+
+@media (max-width: 520px) {
+  .profile-nickname-row {
+    grid-template-columns: 1fr;
+  }
 }
 
 .workspace-content {
@@ -3639,8 +3741,8 @@ button {
     width: auto;
     height: auto;
     grid-template-columns: 1fr auto;
-    margin: 10px;
-    border-radius: 22px;
+    margin: 0;
+    border-radius: 0;
     padding: 16px;
   }
 
@@ -3688,7 +3790,8 @@ button {
     display: grid;
     width: auto;
     align-items: initial;
-    margin: 10px;
+    margin: 0;
+    border-radius: 0;
     padding: 16px;
   }
 
