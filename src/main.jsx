@@ -4,6 +4,8 @@ import {
   ArrowRight,
   CalendarDays,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   Clock3,
   Database,
   FileText,
@@ -15,8 +17,6 @@ import {
   LogOut,
   NotebookPen,
   Palette,
-  PanelLeftClose,
-  PanelLeftOpen,
   Pencil,
   Plus,
   Settings2,
@@ -31,6 +31,7 @@ import { supabase } from './supabaseClient';
 import { matrixOptions, pages, statusOptions, tabs, taskViews } from './config';
 import { LoginPage, RegisterPage } from './pages/AuthPages';
 import { HomePage } from './pages/HomePage';
+import { LongTermTasksPanel } from './components/LongTermTasksPanel';
 import {
   formatDate,
   formatFullDate,
@@ -48,6 +49,7 @@ import {
   isTaskOverdue,
   sortTasks,
 } from './utils/tasks';
+import { isLongTermTask, serializeLongTermTask } from './utils/longTermTasks';
 import './styles.css';
 
 function makeNickname(email = '') {
@@ -56,14 +58,72 @@ function makeNickname(email = '') {
   return `${prefix}${number}`;
 }
 
+function getWorkspacePreviewTasks() {
+  const today = getToday();
+  return [
+    {
+      id: 'preview-long-term-account',
+      user_id: 'preview-user',
+      title: '每天进行直播',
+      description: serializeLongTermTask({
+        version: 1,
+        type: 'account',
+        lifecycle: 'active',
+        startDate: today,
+        endDate: null,
+        resetTime: '00:00',
+        schedule: { type: 'daily' },
+        accounts: [
+          { id: 'preview-a', name: '直播主账号', platform: '抖音', url: 'https://example.com', instructions: '进入直播间并完成直播', targetCount: 1, unlimited: false },
+          { id: 'preview-b', name: '直播副账号 A', platform: '快手', url: 'https://example.com', instructions: '进入直播间并完成直播', targetCount: 1, unlimited: false },
+          { id: 'preview-c', name: '直播副账号 B', platform: '视频号', url: 'https://example.com', instructions: '进入直播间并完成直播', targetCount: 1, unlimited: false },
+        ],
+        checkins: { [today]: { state: 'partial', accountCounts: { 'preview-a': 1, 'preview-b': 1 } } },
+        currentStep: null,
+        stepHistory: [],
+      }),
+      task_date: today,
+      task_time: null,
+      matrix_category: 'important_not_urgent',
+      status: 'in_progress',
+      created_at: new Date().toISOString(),
+    },
+    {
+      id: 'preview-long-term-project',
+      user_id: 'preview-user',
+      title: '搭建个人知识库',
+      description: serializeLongTermTask({
+        version: 1,
+        type: 'project',
+        lifecycle: 'active',
+        startDate: today,
+        endDate: null,
+        resetTime: '00:00',
+        schedule: { type: 'daily' },
+        accounts: [],
+        checkins: {},
+        currentStep: { id: 'preview-step', title: '整理首页的信息结构和栏目名称', notes: '', status: 'in_progress', startedAt: today },
+        stepHistory: [],
+      }),
+      task_date: today,
+      task_time: null,
+      matrix_category: 'important_not_urgent',
+      status: 'in_progress',
+      created_at: new Date().toISOString(),
+    },
+  ];
+}
+
 function App() {
-  const [currentPage, setCurrentPage] = React.useState(pages.home);
+  const isWorkspacePreview = import.meta.env.DEV && new URLSearchParams(window.location.search).has('workspace-preview');
+  const [currentPage, setCurrentPage] = React.useState(isWorkspacePreview ? pages.workspace : pages.home);
   const [workspaceTab, setWorkspaceTab] = React.useState(tabs.dashboard);
-  const [session, setSession] = React.useState(null);
-  const [profile, setProfile] = React.useState(null);
-  const [authReady, setAuthReady] = React.useState(false);
+  const [session, setSession] = React.useState(isWorkspacePreview ? { user: { id: 'preview-user', email: 'preview@example.com' } } : null);
+  const [profile, setProfile] = React.useState(isWorkspacePreview ? { id: 'preview-user', nickname: '预览账号' } : null);
+  const [authReady, setAuthReady] = React.useState(isWorkspacePreview);
 
   React.useEffect(() => {
+    if (isWorkspacePreview) return undefined;
     if (!supabase) {
       setAuthReady(true);
       return undefined;
@@ -80,10 +140,11 @@ function App() {
     });
 
     return () => listener.subscription.unsubscribe();
-  }, []);
+  }, [isWorkspacePreview]);
 
   React.useEffect(() => {
     async function loadProfile() {
+      if (isWorkspacePreview) return;
       if (!session || !supabase) {
         setProfile(null);
         return;
@@ -105,7 +166,7 @@ function App() {
     }
 
     loadProfile();
-  }, [session]);
+  }, [isWorkspacePreview, session]);
 
   async function handleSignOut() {
     if (!supabase) return;
@@ -255,6 +316,12 @@ function WorkspacePage({ session, profile, initialTab, onProfileChange, onLogin,
   const loadData = React.useCallback(async () => {
     if (!session || !supabase) return;
 
+    if (session.user.id === 'preview-user') {
+      setNotes([]);
+      setTasks(getWorkspacePreviewTasks());
+      return;
+    }
+
     setIsLoading(true);
     const [{ data: noteData, error: noteError }, { data: taskData, error: taskError }] = await Promise.all([
       supabase.from('notes').select('id, user_id, title, content, visibility, created_at').order('created_at', {
@@ -306,7 +373,7 @@ function WorkspacePage({ session, profile, initialTab, onProfileChange, onLogin,
   }
 
   const today = getToday();
-  const todayTasks = tasks.filter((task) => task.task_date === today);
+  const todayTasks = tasks.filter((task) => !isLongTermTask(task) && task.task_date === today);
   const importantTodayTasks = todayTasks.filter(
     (task) => task.status !== 'completed' && task.matrix_category.startsWith('important_'),
   );
@@ -318,7 +385,6 @@ function WorkspacePage({ session, profile, initialTab, onProfileChange, onLogin,
       <aside className="workspace-sidebar">
         <div className="workspace-sidebar-top">
           <button className="workspace-brand" onClick={() => setActiveTab(tabs.dashboard)} title="日程笔记">
-            <span className="workspace-brand-mark"><NotebookPen size={21} /></span>
             <span className="workspace-brand-text">日程笔记</span>
           </button>
           <button
@@ -327,7 +393,7 @@ function WorkspacePage({ session, profile, initialTab, onProfileChange, onLogin,
             aria-label={isSidebarCollapsed ? '展开侧栏' : '收起侧栏'}
             title={isSidebarCollapsed ? '展开侧栏' : '收起侧栏'}
           >
-            {isSidebarCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+            {isSidebarCollapsed ? <ChevronRight size={19} /> : <ChevronLeft size={19} />}
           </button>
         </div>
 
@@ -437,9 +503,10 @@ function TabButton({ icon: Icon, label, value, activeTab, onClick }) {
 
 function Dashboard({ notes, tasks, onOpenTasks, onOpenNotes }) {
   const today = getToday();
-  const todayTasks = tasks.filter((task) => task.task_date === today).sort(sortTasks);
+  const ordinaryTasks = tasks.filter((task) => !isLongTermTask(task));
+  const todayTasks = ordinaryTasks.filter((task) => task.task_date === today).sort(sortTasks);
   const longTermTasks = tasks
-    .filter((task) => task.task_date > today && task.status !== 'completed')
+    .filter((task) => !isLongTermTask(task) && task.task_date > today && task.status !== 'completed')
     .sort(sortTasks)
     .slice(0, 3);
   const recentNotes = notes.slice(0, 3);
@@ -870,7 +937,8 @@ function TasksPanel({ session, tasks, setTasks, setMessage }) {
     setMessage('任务已保存到列表。');
   }
 
-  const visibleTasks = filterTasks(tasks, statusFilter, matrixFilter);
+  const ordinaryTasks = tasks.filter((task) => !isLongTermTask(task));
+  const visibleTasks = filterTasks(ordinaryTasks, statusFilter, matrixFilter);
   const emptyText = getTaskListEmptyText(statusFilter, matrixFilter);
 
   return (
@@ -880,6 +948,7 @@ function TasksPanel({ session, tasks, setTasks, setMessage }) {
           <TabButton icon={ListTodo} label="任务列表" value={taskViews.list} activeTab={activeTaskView} onClick={setActiveTaskView} />
           <TabButton icon={CalendarDays} label="日历视图" value={taskViews.calendar} activeTab={activeTaskView} onClick={setActiveTaskView} />
           <TabButton icon={Database} label="四象限矩阵" value={taskViews.matrix} activeTab={activeTaskView} onClick={setActiveTaskView} />
+          <TabButton icon={Flame} label="长期追踪" value={taskViews.longTerm} activeTab={activeTaskView} onClick={(view) => { setActiveTaskView(view); setIsCreateOpen(false); }} />
         </div>
         <button className="workspace-main-action" onClick={() => setIsCreateOpen((open) => !open)}>
           <Plus size={18} />
@@ -887,7 +956,7 @@ function TasksPanel({ session, tasks, setTasks, setMessage }) {
         </button>
       </div>
 
-      {isCreateOpen && (
+      {isCreateOpen && activeTaskView !== taskViews.longTerm && (
         <form className="panel-card form-stack task-composer" onSubmit={handleCreateTask}>
           <div className="form-card-heading">
             <span className="section-icon section-icon-coral"><CheckCircle2 size={18} /></span>
@@ -941,8 +1010,18 @@ function TasksPanel({ session, tasks, setTasks, setMessage }) {
         </div>
       )}
 
-      {activeTaskView === taskViews.calendar && <CalendarPanel tasks={tasks} />}
-      {activeTaskView === taskViews.matrix && <MatrixPanel tasks={tasks} setTasks={setTasks} setMessage={setMessage} />}
+      {activeTaskView === taskViews.calendar && <CalendarPanel tasks={ordinaryTasks} />}
+      {activeTaskView === taskViews.matrix && <MatrixPanel tasks={ordinaryTasks} setTasks={setTasks} setMessage={setMessage} />}
+      {activeTaskView === taskViews.longTerm && (
+        <LongTermTasksPanel
+          session={session}
+          tasks={tasks}
+          setTasks={setTasks}
+          setMessage={setMessage}
+          isCreateOpen={isCreateOpen}
+          setIsCreateOpen={setIsCreateOpen}
+        />
+      )}
     </div>
   );
 }

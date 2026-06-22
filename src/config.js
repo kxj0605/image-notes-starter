@@ -19,6 +19,7 @@ export const taskViews = {
   list: 'list',
   calendar: 'calendar',
   matrix: 'matrix',
+  longTerm: 'long-term',
 };
 
 export const matrixOptions = [
