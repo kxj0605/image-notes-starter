@@ -25,13 +25,15 @@ import {
   Target,
   Trash2,
   UserPlus,
+  Wifi,
   Zap,
 } from 'lucide-react';
 import { supabase } from './supabaseClient';
 import { matrixOptions, pages, statusOptions, tabs, taskViews } from './config';
-import { LoginPage, RegisterPage } from './pages/AuthPages';
+import { ForgotPasswordPage, LoginPage, RegisterPage, ResetPasswordPage } from './pages/AuthPages';
 import { HomePage } from './pages/HomePage';
 import { LongTermTasksPanel } from './components/LongTermTasksPanel';
+import { SubscriptionsPanel } from './components/SubscriptionsPanel';
 import {
   formatDate,
   formatFullDate,
@@ -116,8 +118,15 @@ function getWorkspacePreviewTasks() {
 
 function App() {
   const isWorkspacePreview = import.meta.env.DEV && new URLSearchParams(window.location.search).has('workspace-preview');
-  const [currentPage, setCurrentPage] = React.useState(isWorkspacePreview ? pages.workspace : pages.home);
-  const [workspaceTab, setWorkspaceTab] = React.useState(tabs.dashboard);
+  const isPasswordReset = new URLSearchParams(window.location.search).has('reset-password');
+  const requestedPreviewTab = new URLSearchParams(window.location.search).get('workspace-tab');
+  const [currentPage, setCurrentPage] = React.useState(
+    isWorkspacePreview ? pages.workspace : isPasswordReset ? pages.resetPassword : pages.home,
+  );
+  const [passwordRecoveryEmail, setPasswordRecoveryEmail] = React.useState('');
+  const [workspaceTab, setWorkspaceTab] = React.useState(
+    isWorkspacePreview && Object.values(tabs).includes(requestedPreviewTab) ? requestedPreviewTab : tabs.dashboard,
+  );
   const [session, setSession] = React.useState(isWorkspacePreview ? { user: { id: 'preview-user', email: 'preview@example.com' } } : null);
   const [profile, setProfile] = React.useState(isWorkspacePreview ? { id: 'preview-user', nickname: '预览账号' } : null);
   const [authReady, setAuthReady] = React.useState(isWorkspacePreview);
@@ -134,8 +143,12 @@ function App() {
       setAuthReady(true);
     });
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    const { data: listener } = supabase.auth.onAuthStateChange((event, nextSession) => {
       setSession(nextSession);
+      if (event === 'PASSWORD_RECOVERY') {
+        setCurrentPage(pages.resetPassword);
+        return;
+      }
       if (nextSession) setCurrentPage(pages.workspace);
     });
 
@@ -180,7 +193,7 @@ function App() {
         ? 'app-shell workspace-app-shell'
       : currentPage === pages.publicNotes
           ? 'app-shell public-app-shell'
-          : currentPage === pages.login || currentPage === pages.register
+          : currentPage === pages.login || currentPage === pages.register || currentPage === pages.forgotPassword || currentPage === pages.resetPassword
             ? 'app-shell auth-app-shell'
           : currentPage === pages.home
             ? 'app-shell home-app-shell'
@@ -269,6 +282,10 @@ function App() {
       {currentPage === pages.login && (
         <LoginPage
           onRegister={() => setCurrentPage(pages.register)}
+          onForgotPassword={(email) => {
+            setPasswordRecoveryEmail(email);
+            setCurrentPage(pages.forgotPassword);
+          }}
           onDone={() => {
             setWorkspaceTab(tabs.dashboard);
             setCurrentPage(pages.workspace);
@@ -277,6 +294,21 @@ function App() {
       )}
       {currentPage === pages.register && (
         <RegisterPage
+          onLogin={() => setCurrentPage(pages.login)}
+          onDone={() => {
+            setWorkspaceTab(tabs.dashboard);
+            setCurrentPage(pages.workspace);
+          }}
+        />
+      )}
+      {currentPage === pages.forgotPassword && (
+        <ForgotPasswordPage
+          initialEmail={passwordRecoveryEmail}
+          onLogin={() => setCurrentPage(pages.login)}
+        />
+      )}
+      {currentPage === pages.resetPassword && (
+        <ResetPasswordPage
           onLogin={() => setCurrentPage(pages.login)}
           onDone={() => {
             setWorkspaceTab(tabs.dashboard);
@@ -398,6 +430,7 @@ function WorkspacePage({ session, profile, initialTab, onProfileChange, onLogin,
           <SidebarButton icon={House} label="主页" active={activeTab === tabs.dashboard} onClick={() => setActiveTab(tabs.dashboard)} collapsed={isSidebarCollapsed} />
           <SidebarButton icon={NotebookPen} label="我的笔记" active={activeTab === tabs.notes} onClick={() => setActiveTab(tabs.notes)} collapsed={isSidebarCollapsed} />
           <SidebarButton icon={CheckCircle2} label="任务中心" active={activeTab === tabs.tasks} onClick={() => setActiveTab(tabs.tasks)} collapsed={isSidebarCollapsed} />
+          <SidebarButton icon={Wifi} label="订阅管理" active={activeTab === tabs.subscriptions} onClick={() => setActiveTab(tabs.subscriptions)} collapsed={isSidebarCollapsed} />
           <SidebarButton icon={FileText} label="公开笔记" active={activeTab === tabs.publicNotes} onClick={() => setActiveTab(tabs.publicNotes)} collapsed={isSidebarCollapsed} />
         </nav>
 
@@ -432,8 +465,8 @@ function WorkspacePage({ session, profile, initialTab, onProfileChange, onLogin,
         {activeTab !== tabs.dashboard && activeTab !== tabs.publicNotes && (
           <header className="workspace-heading compact-heading">
             <div>
-              <h1>{activeTab === tabs.notes ? '我的笔记' : activeTab === tabs.tasks ? '任务中心' : '设置'}</h1>
-              {activeTab !== tabs.profile && (
+              <h1>{activeTab === tabs.notes ? '我的笔记' : activeTab === tabs.tasks ? '任务中心' : activeTab === tabs.subscriptions ? '订阅管理' : '设置'}</h1>
+              {activeTab !== tabs.profile && activeTab !== tabs.subscriptions && (
                 <p className="auth-state">
                   {activeTab === tabs.tasks && `今天有 ${todayTasks.length} 项任务，任务列表、日历和四象限都集中在这里。`}
                   {activeTab === tabs.notes && `共 ${notes.length} 篇笔记，记录想法并决定内容是私密还是公开。`}
@@ -454,6 +487,9 @@ function WorkspacePage({ session, profile, initialTab, onProfileChange, onLogin,
         )}
         {activeTab === tabs.tasks && (
           <TasksPanel session={session} tasks={tasks} setTasks={setTasks} setMessage={setMessage} />
+        )}
+        {activeTab === tabs.subscriptions && (
+          <SubscriptionsPanel session={session} setMessage={setMessage} />
         )}
         {activeTab === tabs.publicNotes && (
           <PublicNotesPage session={session} profile={profile} onLogin={onLogin} embedded />

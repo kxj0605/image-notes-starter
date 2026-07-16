@@ -2,6 +2,8 @@ export const pages = {
   home: 'home',
   login: 'login',
   register: 'register',
+  forgotPassword: 'forgotPassword',
+  resetPassword: 'resetPassword',
   workspace: 'workspace',
   publicNotes: 'publicNotes',
 };
@@ -10,6 +12,7 @@ export const tabs = {
   dashboard: 'dashboard',
   notes: 'notes',
   tasks: 'tasks',
+  subscriptions: 'subscriptions',
   calendar: 'calendar',
   matrix: 'matrix',
   publicNotes: 'public-notes',

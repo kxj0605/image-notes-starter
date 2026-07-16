@@ -2,7 +2,7 @@ import React from 'react';
 import { LockKeyhole, LogIn, ShieldCheck, Sparkles, UserPlus } from 'lucide-react';
 import { isSupabaseConfigured, supabase } from '../supabaseClient';
 
-export function LoginPage({ onRegister, onDone }) {
+export function LoginPage({ onRegister, onForgotPassword, onDone }) {
   const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
   const [message, setMessage] = React.useState('');
@@ -88,10 +88,140 @@ export function LoginPage({ onRegister, onDone }) {
           </button>
         </form>
         {message && <p className="form-message">{message}</p>}
+        <button className="link-button secondary-link-button" onClick={() => onForgotPassword(email)}>
+          忘记密码？
+        </button>
         <button className="link-button" onClick={onRegister}>
           还没有账号，去注册
         </button>
         <p className="auth-trust-note"><ShieldCheck size={15} /> 安全登录到你的私人空间</p>
+      </div>
+    </section>
+  );
+}
+
+export function ForgotPasswordPage({ initialEmail = '', onLogin }) {
+  const [email, setEmail] = React.useState(initialEmail);
+  const [message, setMessage] = React.useState('');
+  const [isLoading, setIsLoading] = React.useState(false);
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+    setMessage('');
+
+    if (!isSupabaseConfigured) {
+      setMessage('登录服务尚未配置好。');
+      return;
+    }
+
+    setIsLoading(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      // Password reset links must return to a public URL; a local preview URL
+      // cannot be opened from an email on another device.
+      redirectTo: 'https://image-notes-starter.vercel.app/?reset-password=1',
+    });
+    setIsLoading(false);
+
+    if (error) {
+      setMessage(`发送失败：${error.message}`);
+      return;
+    }
+
+    setMessage('重置链接已发送。请打开邮箱，点击邮件中的链接后设置新密码。');
+  }
+
+  return (
+    <section className="auth-page">
+      <div className="auth-card">
+        <div className="auth-card-heading">
+          <span className="auth-heading-icon"><LockKeyhole size={22} /></span>
+          <div>
+            <p className="eyebrow"><Sparkles size={15} /> 找回密码</p>
+            <h1>重设你的登录密码</h1>
+            <p className="muted-text">输入注册邮箱，我们会发送一封安全的重置邮件。</p>
+          </div>
+        </div>
+        <form className="form-stack" onSubmit={handleSubmit}>
+          <label htmlFor="forgot-password-email">注册邮箱</label>
+          <input
+            id="forgot-password-email"
+            type="email"
+            placeholder="you@example.com"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            required
+          />
+          <button className="primary-button large" type="submit" disabled={isLoading}>
+            <LockKeyhole size={18} />
+            {isLoading ? '正在发送…' : '发送重置链接'}
+          </button>
+        </form>
+        {message && <p className="form-message">{message}</p>}
+        <button className="link-button" onClick={onLogin}>返回登录</button>
+      </div>
+    </section>
+  );
+}
+
+export function ResetPasswordPage({ onDone, onLogin }) {
+  const [password, setPassword] = React.useState('');
+  const [confirmPassword, setConfirmPassword] = React.useState('');
+  const [message, setMessage] = React.useState('');
+  const [isLoading, setIsLoading] = React.useState(false);
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+    setMessage('');
+
+    if (password.length < 6) {
+      setMessage('新密码至少需要 6 位。');
+      return;
+    }
+    if (password !== confirmPassword) {
+      setMessage('两次输入的密码不一致。');
+      return;
+    }
+    if (!isSupabaseConfigured) {
+      setMessage('登录服务尚未配置好。');
+      return;
+    }
+
+    setIsLoading(true);
+    const { error } = await supabase.auth.updateUser({ password });
+    setIsLoading(false);
+
+    if (error) {
+      setMessage(`重置失败：${error.message}`);
+      return;
+    }
+
+    setMessage('密码已更新，正在进入工作台…');
+    window.setTimeout(onDone, 700);
+  }
+
+  return (
+    <section className="auth-page">
+      <div className="auth-card">
+        <div className="auth-card-heading">
+          <span className="auth-heading-icon"><LockKeyhole size={22} /></span>
+          <div>
+            <p className="eyebrow"><Sparkles size={15} /> 设置新密码</p>
+            <h1>创建新的登录密码</h1>
+            <p className="muted-text">请设置至少 6 位的新密码，完成后即可继续使用。</p>
+          </div>
+        </div>
+        <form className="form-stack" onSubmit={handleSubmit}>
+          <label htmlFor="new-password">新密码</label>
+          <input id="new-password" type="password" value={password} minLength={6} onChange={(event) => setPassword(event.target.value)} required />
+          <label htmlFor="confirm-password">确认新密码</label>
+          <input id="confirm-password" type="password" value={confirmPassword} minLength={6} onChange={(event) => setConfirmPassword(event.target.value)} required />
+          <button className="primary-button large" type="submit" disabled={isLoading}>
+            <LockKeyhole size={18} />
+            {isLoading ? '正在更新…' : '保存新密码'}
+          </button>
+        </form>
+        {message && <p className="form-message">{message}</p>}
+        <button className="link-button" onClick={onLogin}>返回登录</button>
       </div>
     </section>
   );
