@@ -70,6 +70,7 @@ export function LongTermTasksPanel({ session, tasks, setTasks, setMessage, isCre
   const [skipTarget, setSkipTarget] = React.useState(null);
   const [skipReason, setSkipReason] = React.useState('');
   const [nextSteps, setNextSteps] = React.useState({});
+  const [selectedReviewTaskId, setSelectedReviewTaskId] = React.useState(null);
   const today = getLongTermDate();
 
   const longTermTasks = tasks
@@ -80,6 +81,7 @@ export function LongTermTasksPanel({ session, tasks, setTasks, setMessage, isCre
   const dueTasks = activeTasks.filter((item) => isLongTermTaskDue(item.metadata, today));
   const accountTasks = activeTasks.filter((item) => item.metadata.type === 'account');
   const todayAccountTasks = accountTasks.filter((item) => isLongTermTaskDue(item.metadata, today));
+  const selectedReviewTask = accountTasks.find((item) => item.task.id === selectedReviewTaskId) ?? accountTasks[0] ?? null;
 
   const aggregate = todayAccountTasks.reduce((summary, item) => {
     const day = getAccountDayStatus(item.metadata, today);
@@ -322,13 +324,34 @@ export function LongTermTasksPanel({ session, tasks, setTasks, setMessage, isCre
       )}
 
       {activeSection === 'review' && (
-        <div className="long-term-review-grid">
-          {activeTasks.length === 0 ? <div className="panel-card long-term-empty"><BarChart3 size={24} /><h2>还没有长期任务</h2></div> : activeTasks.map(({ task, metadata }) => metadata.type === 'account' ? (
-            <ReviewCard key={task.id} task={task} metadata={metadata} today={today} onLifecycleChange={changeLifecycle} />
-          ) : (
-            <ProjectReviewCard key={task.id} task={task} metadata={metadata} onLifecycleChange={changeLifecycle} />
-          ))}
-        </div>
+        accountTasks.length === 0 ? (
+          <div className="panel-card long-term-empty"><BarChart3 size={24} /><h2>还没有可回顾的重复任务</h2><p>新建一个账号重复任务后，就能在这里查看打卡热力图。</p></div>
+        ) : (
+          <div className="review-workspace">
+            <ReviewTaskPicker
+              tasks={accountTasks}
+              selectedTaskId={selectedReviewTask.task.id}
+              today={today}
+              onSelect={setSelectedReviewTaskId}
+            />
+            <div className="review-main">
+              <ReviewCard
+                task={selectedReviewTask.task}
+                metadata={selectedReviewTask.metadata}
+                today={today}
+                onLifecycleChange={changeLifecycle}
+              />
+              {activeTasks.some((item) => item.metadata.type === 'project') && (
+                <section className="review-project-summary" aria-label="项目推进回顾">
+                  <div><h2>项目推进</h2><p>项目型任务按步骤回顾，不纳入打卡热力图。</p></div>
+                  {activeTasks.filter((item) => item.metadata.type === 'project').map(({ task, metadata }) => (
+                    <ProjectReviewCard key={task.id} task={task} metadata={metadata} onLifecycleChange={changeLifecycle} />
+                  ))}
+                </section>
+              )}
+            </div>
+          </div>
+        )
       )}
 
       {activeSection === 'archive' && (
@@ -466,12 +489,46 @@ function LifecycleSelect({ value, onChange }) {
   return <select className="lifecycle-select" value={value} onChange={(event) => onChange(event.target.value)} aria-label="长期任务状态"><option value="active">进行中</option><option value="paused">暂停</option><option value="ended">已结束</option><option value="archived">已归档</option></select>;
 }
 
+function ReviewTaskPicker({ tasks, selectedTaskId, today, onSelect }) {
+  return (
+    <aside className="panel-card review-task-picker" aria-label="选择回顾任务">
+      <div className="review-task-picker-heading"><div><h2>选择任务</h2><p>切换后查看单个任务的打卡趋势。</p></div><span>{tasks.length}</span></div>
+      <label className="review-task-select">
+        <span>当前任务</span>
+        <select value={selectedTaskId} onChange={(event) => onSelect(event.target.value)}>
+          {tasks.map(({ task }) => <option value={task.id} key={task.id}>{task.title}</option>)}
+        </select>
+      </label>
+      <div className="review-task-list">
+        {tasks.map(({ task, metadata }) => {
+          const stats = getAccountTaskStats(metadata, today);
+          const isSelected = task.id === selectedTaskId;
+          return (
+            <button
+              className={isSelected ? 'review-task-option active' : 'review-task-option'}
+              type="button"
+              key={task.id}
+              onClick={() => onSelect(task.id)}
+              aria-pressed={isSelected}
+            >
+              <span className="review-task-icon"><Activity size={16} /></span>
+              <span className="review-task-copy"><strong>{task.title}</strong><small>{getLongTermScheduleLabel(metadata)}</small></span>
+              <span className="review-task-streak">{stats.streakDays} 天</span>
+            </button>
+          );
+        })}
+      </div>
+    </aside>
+  );
+}
+
 function ReviewCard({ task, metadata, today, onLifecycleChange }) {
   const stats = getAccountTaskStats(metadata, today);
   const dates = [];
   const cursor = new Date(`${today}T12:00:00`);
-  cursor.setDate(cursor.getDate() - 34);
-  for (let index = 0; index < 35; index += 1) {
+  const mondayOffset = (cursor.getDay() + 6) % 7;
+  cursor.setDate(cursor.getDate() - 77 - mondayOffset);
+  for (let index = 0; index < 84; index += 1) {
     const date = getLongTermDate(cursor);
     const status = getAccountDayStatus(metadata, date).state;
     const visibleStatus = status === 'pending' && date < today ? 'missed' : status;
@@ -481,7 +538,10 @@ function ReviewCard({ task, metadata, today, onLifecycleChange }) {
   return (
     <article className="panel-card review-card">
       <div className="panel-heading-row"><div><h2>{task.title}</h2><p>{getLongTermScheduleLabel(metadata)}</p></div><div className="review-heading-actions"><strong>{stats.cumulativeDays} 个完成日</strong><LifecycleSelect value={metadata.lifecycle} onChange={(value) => onLifecycleChange(task, metadata, value)} /></div></div>
-      <div className="review-heatmap">{dates.map((item) => <span className={`heat-${item.status}`} title={`${item.date} · ${item.status}`} key={item.date} />)}</div>
+      <div className="review-heatmap-wrap">
+        <div className="review-weekday-labels" aria-hidden="true">{['一', '二', '三', '四', '五', '六', '日'].map((day) => <span key={day}>{day}</span>)}</div>
+        <div className="review-heatmap">{dates.map((item) => <span className={`heat-${item.status}`} title={`${item.date} · ${item.status}`} key={item.date} />)}</div>
+      </div>
       <div className="review-stat-row"><span>真实连续 <strong>{stats.streakDays} 天</strong></span><span>累计操作 <strong>{stats.totalActions} 次</strong></span><span>本月完成 <strong>{stats.monthCompleted} 天</strong></span></div>
     </article>
   );

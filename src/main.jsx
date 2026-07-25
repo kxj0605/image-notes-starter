@@ -2,12 +2,12 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import {
   ArrowRight,
+  ArrowUp,
   CalendarDays,
   CheckCircle2,
-  ChevronLeft,
-  ChevronRight,
   Clock3,
   Database,
+  Download,
   FileText,
   Flame,
   Github,
@@ -19,6 +19,7 @@ import {
   Palette,
   Pencil,
   Plus,
+  Scissors,
   Settings2,
   Sparkles,
   Star,
@@ -223,15 +224,17 @@ function App() {
               公开笔记
             </button>
           )}
-          <a
-            className="icon-button"
-            href="https://github.com/kxj0605/image-notes-starter"
-            aria-label="GitHub 代码"
-            target="_blank"
-            rel="noreferrer"
-          >
-            <Github size={18} />
-          </a>
+          {currentPage !== pages.home && (
+            <a
+              className="icon-button"
+              href="https://github.com/kxj0605/image-notes-starter"
+              aria-label="GitHub 代码"
+              target="_blank"
+              rel="noreferrer"
+            >
+              <Github size={18} />
+            </a>
+          )}
 
           {session ? (
             <>
@@ -340,9 +343,6 @@ function WorkspacePage({ session, profile, initialTab, onProfileChange, onLogin,
   const [message, setMessage] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(false);
   const [theme, setTheme] = React.useState(() => window.localStorage.getItem('workspace-theme') || 'default');
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = React.useState(
-    () => window.localStorage.getItem('workspace-sidebar-collapsed') === 'true',
-  );
 
   const loadData = React.useCallback(async () => {
     if (!session || !supabase) return;
@@ -383,10 +383,6 @@ function WorkspacePage({ session, profile, initialTab, onProfileChange, onLogin,
     window.localStorage.setItem('workspace-theme', theme);
   }, [theme]);
 
-  React.useEffect(() => {
-    window.localStorage.setItem('workspace-sidebar-collapsed', String(isSidebarCollapsed));
-  }, [isSidebarCollapsed]);
-
   if (!session) {
     return (
       <section className="auth-page">
@@ -408,37 +404,22 @@ function WorkspacePage({ session, profile, initialTab, onProfileChange, onLogin,
   const importantTodayTasks = todayTasks.filter(
     (task) => task.status !== 'completed' && task.matrix_category.startsWith('important_'),
   );
+  const isContentTab = [tabs.notes, tabs.breakdown, tabs.publicNotes].includes(activeTab);
 
   return (
-    <section className={`workspace-frame workspace-theme-${theme}${isSidebarCollapsed ? ' sidebar-collapsed' : ''}`}>
+    <section className={`workspace-frame workspace-theme-${theme}`}>
       <aside className="workspace-sidebar">
-        <div className="workspace-sidebar-top">
-          <button className="workspace-brand" onClick={() => setActiveTab(tabs.dashboard)} title="日程笔记">
-            <span className="workspace-brand-text">日程笔记</span>
-          </button>
-          <button
-            className="sidebar-collapse-button"
-            onClick={() => setIsSidebarCollapsed((collapsed) => !collapsed)}
-            aria-label={isSidebarCollapsed ? '展开侧栏' : '收起侧栏'}
-            title={isSidebarCollapsed ? '展开侧栏' : '收起侧栏'}
-          >
-            {isSidebarCollapsed ? <ChevronRight size={19} /> : <ChevronLeft size={19} />}
-          </button>
-        </div>
-
         <nav className="workspace-nav" aria-label="私人工作台导航">
-          <SidebarButton icon={House} label="主页" active={activeTab === tabs.dashboard} onClick={() => setActiveTab(tabs.dashboard)} collapsed={isSidebarCollapsed} />
-          <SidebarButton icon={NotebookPen} label="我的笔记" active={activeTab === tabs.notes} onClick={() => setActiveTab(tabs.notes)} collapsed={isSidebarCollapsed} />
-          <SidebarButton icon={CheckCircle2} label="任务中心" active={activeTab === tabs.tasks} onClick={() => setActiveTab(tabs.tasks)} collapsed={isSidebarCollapsed} />
-          <SidebarButton icon={Wifi} label="订阅管理" active={activeTab === tabs.subscriptions} onClick={() => setActiveTab(tabs.subscriptions)} collapsed={isSidebarCollapsed} />
-          <SidebarButton icon={FileText} label="公开笔记" active={activeTab === tabs.publicNotes} onClick={() => setActiveTab(tabs.publicNotes)} collapsed={isSidebarCollapsed} />
+          <SidebarButton icon={House} label="主页" active={activeTab === tabs.dashboard} onClick={() => setActiveTab(tabs.dashboard)} />
+          <SidebarButton icon={NotebookPen} label="内容库" active={isContentTab} onClick={() => setActiveTab(tabs.notes)} />
+          <SidebarButton icon={CheckCircle2} label="任务中心" active={activeTab === tabs.tasks} onClick={() => setActiveTab(tabs.tasks)} />
+          <SidebarButton icon={Wifi} label="订阅管理" active={activeTab === tabs.subscriptions} onClick={() => setActiveTab(tabs.subscriptions)} />
         </nav>
 
         <div className="workspace-sidebar-footer">
           <button
             className={activeTab === tabs.profile ? 'sidebar-settings-entry active' : 'sidebar-settings-entry'}
             onClick={() => setActiveTab(tabs.profile)}
-            title={isSidebarCollapsed ? '设置' : undefined}
             aria-label="设置"
           >
             <Settings2 size={19} />
@@ -462,16 +443,18 @@ function WorkspacePage({ session, profile, initialTab, onProfileChange, onLogin,
           </header>
         )}
 
-        {activeTab !== tabs.dashboard && activeTab !== tabs.publicNotes && (
+        {activeTab !== tabs.dashboard && (
           <header className="workspace-heading compact-heading">
             <div>
-              <h1>{activeTab === tabs.notes ? '我的笔记' : activeTab === tabs.tasks ? '任务中心' : activeTab === tabs.subscriptions ? '订阅管理' : '设置'}</h1>
+              <h1>{isContentTab ? '内容库' : activeTab === tabs.tasks ? '任务中心' : activeTab === tabs.subscriptions ? '订阅管理' : '设置'}</h1>
               {activeTab !== tabs.profile && activeTab !== tabs.subscriptions && (
                 <p className="auth-state">
                   {activeTab === tabs.tasks && `今天有 ${todayTasks.length} 项任务，任务列表、日历和四象限都集中在这里。`}
                   {activeTab === tabs.notes && `共 ${notes.length} 篇笔记，记录想法并决定内容是私密还是公开。`}
+                  {activeTab === tabs.breakdown && '按故事、冲突和声音边界，拆解对标视频的脚本结构。'}
                 </p>
               )}
+              {isContentTab && <ContentTabs activeTab={activeTab} onChange={setActiveTab} />}
             </div>
           </header>
         )}
@@ -488,6 +471,7 @@ function WorkspacePage({ session, profile, initialTab, onProfileChange, onLogin,
         {activeTab === tabs.tasks && (
           <TasksPanel session={session} tasks={tasks} setTasks={setTasks} setMessage={setMessage} />
         )}
+        {activeTab === tabs.breakdown && <ScriptBreakdownPanel />}
         {activeTab === tabs.subscriptions && (
           <SubscriptionsPanel session={session} setMessage={setMessage} />
         )}
@@ -506,16 +490,246 @@ function WorkspacePage({ session, profile, initialTab, onProfileChange, onLogin,
           />
         )}
       </div>
+      <ScrollToTopButton />
     </section>
   );
 }
 
-function SidebarButton({ icon: Icon, label, active = false, onClick, collapsed = false }) {
+function ScrollToTopButton() {
+  const [progress, setProgress] = React.useState(0);
+
+  React.useEffect(() => {
+    const updateProgress = () => {
+      const documentHeight = document.documentElement.scrollHeight - window.innerHeight;
+      setProgress(documentHeight > 0 ? Math.round((window.scrollY / documentHeight) * 100) : 0);
+    };
+
+    updateProgress();
+    window.addEventListener('scroll', updateProgress, { passive: true });
+    window.addEventListener('resize', updateProgress);
+    return () => {
+      window.removeEventListener('scroll', updateProgress);
+      window.removeEventListener('resize', updateProgress);
+    };
+  }, []);
+
+  if (progress === 0) return null;
+
   return (
-    <button className={active ? 'sidebar-nav-button active' : 'sidebar-nav-button'} onClick={onClick} title={collapsed ? label : undefined} aria-label={label}>
+    <button
+      className="scroll-top-button"
+      onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+      aria-label={`回到顶部，当前浏览进度 ${progress}%`}
+      title={`回到顶部 · ${progress}%`}
+    >
+      <span>{progress}%</span>
+      <ArrowUp size={15} aria-hidden="true" />
+    </button>
+  );
+}
+
+function SidebarButton({ icon: Icon, label, active = false, onClick }) {
+  return (
+    <button className={active ? 'sidebar-nav-button active' : 'sidebar-nav-button'} onClick={onClick} aria-label={label}>
       <Icon size={19} />
       <span>{label}</span>
     </button>
+  );
+}
+
+function ContentTabs({ activeTab, onChange }) {
+  return (
+    <div className="tab-bar content-tabs" aria-label="内容库分类">
+      <TabButton icon={NotebookPen} label="笔记" value={tabs.notes} activeTab={activeTab} onClick={onChange} />
+      <TabButton icon={Scissors} label="脚本拆解" value={tabs.breakdown} activeTab={activeTab} onClick={onChange} />
+      <TabButton icon={FileText} label="公开笔记" value={tabs.publicNotes} activeTab={activeTab} onClick={onChange} />
+    </div>
+  );
+}
+
+function ScriptBreakdownPanel() {
+  const formRef = React.useRef(null);
+  const [isExportOpen, setIsExportOpen] = React.useState(false);
+  const [exportLocation, setExportLocation] = React.useState('picker');
+  const [exportFormat, setExportFormat] = React.useState('md');
+  const [exportFileName, setExportFileName] = React.useState('脚本拆解');
+
+  const resizeTextarea = (event) => {
+    const textarea = event.currentTarget;
+    if (!textarea.value.trim()) {
+      textarea.style.height = '';
+      return;
+    }
+
+    textarea.style.height = 'auto';
+    const lineHeight = Number.parseFloat(window.getComputedStyle(textarea).lineHeight) || 21;
+    textarea.style.height = `${textarea.scrollHeight + lineHeight}px`;
+  };
+
+  const fields = [
+    {
+      title: '简短简介',
+      placeholder: '约 2—3 句，视频简介。',
+    },
+    {
+      title: '主题承诺',
+      hint: '观众点进来，能看到什么新鲜东西？',
+      placeholder: '如：野外煮面失败以后，用方便面袋临时做吊锅，最后真的吃上热面。',
+      accent: true,
+    },
+    {
+      title: '核心事件链',
+      hint: '一段完整梗概，简述事件顺序是什么。',
+      placeholder: '如：主角塞面失败、炉子侧翻、重新烧水、剪袋烫孔、穿嫩茎、悬挂、加调料、倒开水、做筷子、吃面。',
+      accent: true,
+    },
+    {
+      title: '冲突与转折',
+      hint: '哪里出事，哪里出现新解法？',
+      placeholder: '如：小钢杯装不下面饼是问题，包装袋变成吊锅是转折。',
+      accent: true,
+    },
+    {
+      title: '人物情绪',
+      hint: '状态怎么变化？',
+      placeholder: '如：主角焦急、惊讶、沮丧、重新振作、得意、满足。',
+    },
+    {
+      title: '关键道具',
+      hint: '列出推动故事发展或承载转折的道具。',
+      placeholder: '填写关键道具及其作用。',
+    },
+    {
+      title: '角色',
+      hint: '写下主要角色、身份和关系。',
+      placeholder: '填写角色、身份和相互关系。',
+    },
+    {
+      title: '声音边界',
+      hint: '哪里需要台词，哪里靠动作？',
+      placeholder: '填写台词、旁白、环境音与纯动作段落的分工。',
+    },
+  ];
+
+  const buildExportContent = () => {
+    const formData = new FormData(formRef.current);
+    const title = formData.get('title')?.trim() || '脚本拆解';
+    const sections = fields.map((field, index) => `## ${index + 2}. ${field.title}\n\n${formData.get(field.title)?.trim() || '（未填写）'}`);
+    const markdown = [
+      `# ${title}`,
+      '',
+      '## 1. 对标视频',
+      '',
+      formData.get('benchmark-video')?.trim() || '（未填写）',
+      '',
+      ...sections,
+      '',
+    ].join('\n');
+    return { markdown, title };
+  };
+
+  const openExportDialog = () => {
+    const formData = new FormData(formRef.current);
+    setExportFileName(formData.get('title')?.trim() || '脚本拆解');
+    setIsExportOpen(true);
+  };
+
+  const downloadExport = (content, fileName, mimeType) => {
+    const file = new Blob([content], { type: mimeType });
+    const fileUrl = URL.createObjectURL(file);
+    const link = document.createElement('a');
+    link.href = fileUrl;
+    link.download = fileName;
+    link.click();
+    URL.revokeObjectURL(fileUrl);
+  };
+
+  const exportDocument = async () => {
+    const { markdown } = buildExportContent();
+    const extension = exportFormat === 'txt' ? 'txt' : 'md';
+    const mimeType = extension === 'txt' ? 'text/plain;charset=utf-8' : 'text/markdown;charset=utf-8';
+    const baseName = exportFileName.replace(/\.(md|txt)$/i, '').replace(/[\\/:*?"<>|]/g, '-').trim() || '脚本拆解';
+    const fileName = `${baseName}.${extension}`;
+
+    if (exportLocation === 'picker' && 'showSaveFilePicker' in window) {
+      try {
+        const handle = await window.showSaveFilePicker({
+          suggestedName: fileName,
+          types: [{ description: extension === 'md' ? 'Markdown' : '纯文本', accept: { [mimeType.split(';')[0]]: [`.${extension}`] } }],
+        });
+        const writable = await handle.createWritable();
+        await writable.write(markdown);
+        await writable.close();
+        setIsExportOpen(false);
+        return;
+      } catch (error) {
+        if (error?.name === 'AbortError') return;
+      }
+    }
+
+    downloadExport(markdown, fileName, mimeType);
+    setIsExportOpen(false);
+  };
+
+  return (
+    <section className="panel-card script-breakdown-panel" aria-label="脚本拆解">
+      <div className="form-card-heading">
+        <span className="section-icon section-icon-blue"><Scissors size={18} /></span>
+        <div>
+          <h2>脚本拆解</h2>
+          <p>脚本拆解与复刻：讲清楚发生了什么 / 故事内核架构。</p>
+        </div>
+        <button className="script-breakdown-export" type="button" onClick={openExportDialog} aria-label="导出" title="导出">
+          <Download size={18} />
+        </button>
+      </div>
+      {isExportOpen && (
+        <section className="script-export-popover" aria-label="导出选项">
+          <h3>导出</h3>
+          <label>
+            导出位置
+            <select value={exportLocation} onChange={(event) => setExportLocation(event.target.value)}>
+              <option value="picker">选择保存位置</option>
+              <option value="download">浏览器默认下载位置</option>
+            </select>
+          </label>
+          <label>
+            导出格式
+            <select value={exportFormat} onChange={(event) => setExportFormat(event.target.value)}>
+              <option value="md">Markdown (.md)</option>
+              <option value="txt">纯文本 (.txt)</option>
+            </select>
+          </label>
+          <label>
+            导出文件名
+            <input value={exportFileName} onChange={(event) => setExportFileName(event.target.value)} />
+          </label>
+          <div className="script-export-actions">
+            <button type="button" className="text-button" onClick={() => setIsExportOpen(false)}>取消</button>
+            <button type="button" className="primary-button" onClick={exportDocument}>导出</button>
+          </div>
+        </section>
+      )}
+      <form className="form-stack script-breakdown-form" ref={formRef} onSubmit={(event) => event.preventDefault()}>
+        <label className="script-breakdown-title-field">
+          <span>标题</span>
+          <input name="title" placeholder="x月x日 脚本拆解v1" />
+        </label>
+        <label className="script-breakdown-field">
+          <span>1. 对标视频</span>
+          <input name="benchmark-video" type="url" placeholder="粘贴对标视频链接" />
+        </label>
+        {fields.map((field, index) => (
+          <label className="script-breakdown-field" key={field.title}>
+            <span className="script-breakdown-label">
+              <strong className={field.accent ? 'script-breakdown-accent' : undefined}>{index + 2}. {field.title}</strong>
+              {field.hint && <em>{field.hint}</em>}
+            </span>
+            <textarea name={field.title} rows={3} placeholder={field.placeholder} onInput={resizeTextarea} />
+          </label>
+        ))}
+      </form>
+    </section>
   );
 }
 
@@ -1420,10 +1634,36 @@ function MatrixPanel({ tasks, setTasks, setMessage }) {
 }
 
 function MatrixVisualIcon({ value }) {
-  if (value === 'important_urgent') return <Flame size={18} />;
-  if (value === 'important_not_urgent') return <Star size={18} />;
-  if (value === 'urgent_not_important') return <Zap size={18} />;
-  return <Clock3 size={18} />;
+  const activeCells = {
+    important_urgent: 'top-left',
+    important_not_urgent: 'top-right',
+    urgent_not_important: 'bottom-left',
+    not_urgent_not_important: 'bottom-right',
+  };
+
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none">
+      {['top-left', 'top-right', 'bottom-left', 'bottom-right'].map((cell) => {
+        const isActive = activeCells[value] === cell;
+        const x = cell.endsWith('right') ? 12.5 : 3.5;
+        const y = cell.startsWith('bottom') ? 12.5 : 3.5;
+        return (
+          <rect
+            key={cell}
+            x={x}
+            y={y}
+            width="8"
+            height="8"
+            rx="2"
+            fill={isActive ? 'currentColor' : 'none'}
+            opacity={isActive ? 1 : 0.62}
+            stroke="currentColor"
+            strokeWidth="1.65"
+          />
+        );
+      })}
+    </svg>
+  );
 }
 
 function ProfilePanel({ session, profile, onProfileChange, setMessage, theme, setTheme, onSignOut }) {

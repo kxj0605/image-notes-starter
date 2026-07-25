@@ -12,6 +12,7 @@ export const tabs = {
   dashboard: 'dashboard',
   notes: 'notes',
   tasks: 'tasks',
+  breakdown: 'breakdown',
   subscriptions: 'subscriptions',
   calendar: 'calendar',
   matrix: 'matrix',
