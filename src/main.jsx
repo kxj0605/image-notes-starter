@@ -552,6 +552,7 @@ function ContentTabs({ activeTab, onChange }) {
 
 function ScriptBreakdownPanel() {
   const formRef = React.useRef(null);
+  const draftSaveTimerRef = React.useRef(null);
   const [isExportOpen, setIsExportOpen] = React.useState(false);
   const [exportLocation, setExportLocation] = React.useState('picker');
   const [exportFormat, setExportFormat] = React.useState('md');
@@ -574,6 +575,8 @@ function ScriptBreakdownPanel() {
   const [structureMode, setStructureMode] = React.useState('shots');
   const [aiBreakdownValues, setAiBreakdownValues] = React.useState({});
   const [aiDistributionSummary, setAiDistributionSummary] = React.useState(null);
+  const [draftRevision, setDraftRevision] = React.useState(0);
+  const [isDraftReady, setIsDraftReady] = React.useState(false);
 
   const resizeTextarea = (event) => {
     const textarea = event.currentTarget;
@@ -987,6 +990,8 @@ function ScriptBreakdownPanel() {
       }
     } catch {
       // 本地草稿读取失败时仍保持空白练习表单。
+    } finally {
+      setIsDraftReady(true);
     }
   }, []);
 
@@ -1059,6 +1064,39 @@ function ScriptBreakdownPanel() {
   };
 
   const getFormValues = () => Object.fromEntries(getScriptFormData().entries());
+
+  const persistDraft = (showNotice = false) => {
+    try {
+      window.localStorage.setItem('script-breakdown-draft-v1', JSON.stringify(getFormValues()));
+      if (showNotice) setNotice('当前练习已保存在此浏览器');
+    } catch {
+      if (showNotice) setNotice('保存失败，请检查浏览器存储权限');
+    }
+  };
+
+  React.useEffect(() => {
+    if (!isDraftReady) return undefined;
+
+    window.clearTimeout(draftSaveTimerRef.current);
+    draftSaveTimerRef.current = window.setTimeout(() => persistDraft(), 800);
+    return () => window.clearTimeout(draftSaveTimerRef.current);
+  }, [
+    aiBreakdownValues,
+    benchmarkVideoUrl,
+    draftRevision,
+    isDraftReady,
+    selectedVideoType,
+    structureMode,
+    videoTypeValues,
+  ]);
+
+  React.useEffect(() => {
+    if (!isDraftReady) return undefined;
+
+    const saveBeforeLeaving = () => persistDraft();
+    window.addEventListener('pagehide', saveBeforeLeaving);
+    return () => window.removeEventListener('pagehide', saveBeforeLeaving);
+  }, [aiBreakdownValues, benchmarkVideoUrl, isDraftReady, selectedVideoType, structureMode, videoTypeValues]);
 
   const fillBenchmarkMetadata = (pastedText) => {
     if (!formRef.current) return 0;
@@ -1173,12 +1211,7 @@ function ScriptBreakdownPanel() {
   };
 
   const saveDraft = () => {
-    try {
-      window.localStorage.setItem('script-breakdown-draft-v1', JSON.stringify(getFormValues()));
-      setNotice('当前练习已保存在此浏览器');
-    } catch {
-      setNotice('保存失败，请检查浏览器存储权限');
-    }
+    persistDraft(true);
   };
 
   const copyAiPrompt = async () => {
@@ -1345,7 +1378,12 @@ function ScriptBreakdownPanel() {
           </div>
         </section>
       )}
-      <form className="form-stack script-breakdown-form" ref={formRef} onSubmit={(event) => event.preventDefault()}>
+      <form
+        className="form-stack script-breakdown-form"
+        ref={formRef}
+        onInput={() => setDraftRevision((revision) => revision + 1)}
+        onSubmit={(event) => event.preventDefault()}
+      >
         <label className="script-breakdown-title-field">
           <span>标题</span>
           <input name="title" placeholder="x月x日 脚本拆解v1" />
