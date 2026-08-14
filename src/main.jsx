@@ -5,7 +5,9 @@ import {
   ArrowUp,
   CalendarDays,
   CheckCircle2,
+  ClipboardPaste,
   Clock3,
+  Copy,
   Database,
   Download,
   FileText,
@@ -20,6 +22,7 @@ import {
   Pencil,
   Plus,
   Scissors,
+  Save,
   Settings2,
   Sparkles,
   Star,
@@ -411,7 +414,7 @@ function WorkspacePage({ session, profile, initialTab, onProfileChange, onLogin,
       <aside className="workspace-sidebar">
         <nav className="workspace-nav" aria-label="私人工作台导航">
           <SidebarButton icon={House} label="主页" active={activeTab === tabs.dashboard} onClick={() => setActiveTab(tabs.dashboard)} />
-          <SidebarButton icon={NotebookPen} label="内容库" active={isContentTab} onClick={() => setActiveTab(tabs.notes)} />
+          <SidebarButton icon={NotebookPen} label="内容库" active={isContentTab} onClick={() => setActiveTab(tabs.breakdown)} />
           <SidebarButton icon={CheckCircle2} label="任务中心" active={activeTab === tabs.tasks} onClick={() => setActiveTab(tabs.tasks)} />
           <SidebarButton icon={Wifi} label="订阅管理" active={activeTab === tabs.subscriptions} onClick={() => setActiveTab(tabs.subscriptions)} />
         </nav>
@@ -451,7 +454,7 @@ function WorkspacePage({ session, profile, initialTab, onProfileChange, onLogin,
                 <p className="auth-state">
                   {activeTab === tabs.tasks && `今天有 ${todayTasks.length} 项任务，任务列表、日历和四象限都集中在这里。`}
                   {activeTab === tabs.notes && `共 ${notes.length} 篇笔记，记录想法并决定内容是私密还是公开。`}
-                  {activeTab === tabs.breakdown && '按故事、冲突和声音边界，拆解对标视频的脚本结构。'}
+                  {activeTab === tabs.breakdown && '按故事、情绪和传播维度，拆解对标视频的脚本结构。'}
                 </p>
               )}
               {isContentTab && <ContentTabs activeTab={activeTab} onChange={setActiveTab} />}
@@ -540,8 +543,8 @@ function SidebarButton({ icon: Icon, label, active = false, onClick }) {
 function ContentTabs({ activeTab, onChange }) {
   return (
     <div className="tab-bar content-tabs" aria-label="内容库分类">
-      <TabButton icon={NotebookPen} label="笔记" value={tabs.notes} activeTab={activeTab} onClick={onChange} />
       <TabButton icon={Scissors} label="脚本拆解" value={tabs.breakdown} activeTab={activeTab} onClick={onChange} />
+      <TabButton icon={NotebookPen} label="笔记" value={tabs.notes} activeTab={activeTab} onClick={onChange} />
       <TabButton icon={FileText} label="公开笔记" value={tabs.publicNotes} activeTab={activeTab} onClick={onChange} />
     </div>
   );
@@ -553,6 +556,24 @@ function ScriptBreakdownPanel() {
   const [exportLocation, setExportLocation] = React.useState('picker');
   const [exportFormat, setExportFormat] = React.useState('md');
   const [exportFileName, setExportFileName] = React.useState('脚本拆解');
+  const [notice, setNotice] = React.useState('');
+  const [comparison, setComparison] = React.useState(null);
+  const defaultBenchmarkPrompts = {
+    youtube: '请根据 YouTube / YouTube Shorts 视频链接，提取公开资料，并严格按以下格式逐行输出。不要添加表格、序号、解释或代码块。\n\n视频标题：仅保留标题正文，不包含任何 # 标签\n视频标签：去掉 #；剔除与频道名称相同的标签；多项用 、 分隔\n视频链接：原始视频链接\n背景音乐：歌曲或音乐名称；无法确认请写不可用\n视频时长：\n频道名称：使用 @频道 Handle\n频道主页链接：https://www.youtube.com/@频道Handle\n播放量：\n点赞量：\n评论量：\n\n无法可靠获取的字段请写“不可用”，不要猜测。\n\n视频链接：{{视频链接}}',
+    douyin: '我提供一个抖音视频链接，帮我提取并按固定格式逐行输出。不要添加表格、序号、解释或代码块。\n\n视频标题：不包含标签\n视频简介：\n视频标签：去掉 #；如果标签与频道名称相同则剔除\n视频链接：{{视频链接}}\n背景音乐：\n点赞量：\n评论量：\n收藏量：\n转发量：\n\n无法可靠获取的字段请写“不可用”，不要猜测。',
+  };
+  const [benchmarkPromptTemplates, setBenchmarkPromptTemplates] = React.useState(defaultBenchmarkPrompts);
+  const [isBenchmarkPromptSettingsOpen, setIsBenchmarkPromptSettingsOpen] = React.useState(false);
+  const [promptSettingsPlatform, setPromptSettingsPlatform] = React.useState('youtube');
+  const [isBenchmarkMetadataPasteOpen, setIsBenchmarkMetadataPasteOpen] = React.useState(false);
+  const [benchmarkMetadataPasteText, setBenchmarkMetadataPasteText] = React.useState('');
+  const [benchmarkVideoUrl, setBenchmarkVideoUrl] = React.useState('');
+  const [benchmarkPlatform, setBenchmarkPlatform] = React.useState('youtube');
+  const [selectedVideoType, setSelectedVideoType] = React.useState('');
+  const [videoTypeValues, setVideoTypeValues] = React.useState({});
+  const [structureMode, setStructureMode] = React.useState('shots');
+  const [aiBreakdownValues, setAiBreakdownValues] = React.useState({});
+  const [aiDistributionSummary, setAiDistributionSummary] = React.useState(null);
 
   const resizeTextarea = (event) => {
     const textarea = event.currentTarget;
@@ -566,17 +587,90 @@ function ScriptBreakdownPanel() {
     textarea.style.height = `${textarea.scrollHeight + lineHeight}px`;
   };
 
-  const fields = [
+  const detectBenchmarkPlatform = (value) => {
+    const normalizedValue = value.trim().toLowerCase();
+    if (!normalizedValue) return 'youtube';
+
+    try {
+      const hostname = new URL(normalizedValue).hostname.replace(/^www\./, '');
+      if (hostname === 'youtu.be' || hostname === 'youtube.com' || hostname.endsWith('.youtube.com')) return 'youtube';
+      if (hostname === 'douyin.com' || hostname.endsWith('.douyin.com') || hostname.endsWith('iesdouyin.com')) return 'douyin';
+    } catch {
+      if (/(^|\.)youtu\.be\b|(^|\.)youtube\.com\b/.test(normalizedValue)) return 'youtube';
+      if (/douyin\.com\b|iesdouyin\.com\b/.test(normalizedValue)) return 'douyin';
+    }
+
+    return 'youtube';
+  };
+
+  const benchmarkPlatformOptions = [
+    { value: 'youtube', label: 'YouTube' },
+    { value: 'douyin', label: '抖音' },
+  ];
+
+  const videoTypeOptions = [
     {
-      title: '简短简介',
-      placeholder: '约 2—3 句，视频简介。',
+      value: 'reversal',
+      label: '爽剧 / 反转打脸',
+      description: '看受虐、逆袭与爽感落点',
+      fields: [
+        { name: 'video-type-reversal-setback', title: '受虐 / 憋屈点', hint: '主角受到了什么不公、嘲笑或陷害？', placeholder: '写下让观众产生同情和愤怒的起点。' },
+        { name: 'video-type-reversal-turn', title: '反转爆发点', hint: '主角如何瞬间逆袭？', placeholder: '写下出人意料的证据、身份或武力。' },
+        { name: 'video-type-reversal-villain', title: '反派反应', hint: '真相揭开后，对方有什么变化？', placeholder: '写下尴尬、惊恐或失语等爽感落点。' },
+        { name: 'video-type-reversal-highlight', title: '金句 / 高光动作', hint: '哪句台词或哪个动作最有记忆点？', placeholder: '写下帅气台词或绝杀动作。' },
+      ],
     },
     {
-      title: '主题承诺',
-      hint: '观众点进来，能看到什么新鲜东西？',
-      placeholder: '如：野外煮面失败以后，用方便面袋临时做吊锅，最后真的吃上热面。',
+      value: 'comedy',
+      label: '搞笑 / 整蛊剧情',
+      description: '看冲突、包袱与递进节奏',
+      fields: [
+        { name: 'video-type-comedy-conflict', title: '荒诞规则 / 冲突', hint: '发生了什么日常中不会如此极端的事？', placeholder: '写下故事的反常规则或冲突。' },
+        { name: 'video-type-comedy-response', title: '主角的脑洞对策', hint: '为了应付检查或难题，主角用了什么歪招？', placeholder: '写下聪明或愚蠢却出人意料的对策。' },
+        { name: 'video-type-comedy-punchline', title: '抓包 / 打脸包袱', hint: '笑点是如何抖出来的？', placeholder: '写下被识破、反差或翻车的瞬间。' },
+        { name: 'video-type-comedy-escalation', title: '重复与递进', hint: '是否重复 2—3 次，并且一次更夸张？', placeholder: '写下“三翻四抖”的节奏变化。' },
+      ],
+    },
+    {
+      value: 'emotion',
+      label: '情感 / 共鸣 / 微小说',
+      description: '看现实痛点、情绪爆发与升华',
+      fields: [
+        { name: 'video-type-emotion-pain-point', title: '故事内核', hint: '梳理完整剧情，总结视频传递的深层内涵和创作立意', placeholder: '如：亲密关系中的误解与和解、普通人对尊严的坚持、家庭责任与个人选择的矛盾。' },
+        { name: 'video-type-emotion-quote', title: '金句台词', hint: '哪句话完成了主题升华？', placeholder: '写下结尾或关键处最有力量的台词。' },
+      ],
+    },
+    {
+      value: 'other',
+      label: '其他',
+      description: '按自己的观察重点自由拆解',
+      fields: [
+        { name: 'video-type-other-dimensions', title: '自定义拆解维度', hint: '你最想从哪些角度看这个视频？', placeholder: '如：节奏设计、镜头语言、知识点安排。' },
+        { name: 'video-type-other-analysis', title: '拆解内容', hint: '围绕上面的维度写下你的观察。', placeholder: '填写你的拆解内容。' },
+      ],
+    },
+  ];
+  const activeVideoType = videoTypeOptions.find((option) => option.value === selectedVideoType);
+
+  const universalFields = [
+    {
+      title: '黄金开头',
+      placeholder: '记录前 3 秒给出的钩子：冲突、意外、危险、损失、反常结果；再补一句“观众为什么会继续看”。',
       accent: true,
     },
+    {
+      title: '节奏与留存',
+      placeholder: '记录信息/情绪如何推进：哪里抛出新问题、哪里给小回报、哪里可能拖沓，以及中段如何避免观众划走。',
+      accent: true,
+    },
+    {
+      title: '互动点',
+      placeholder: '记录最容易引发评论的位置：争议判断、代入式提问、站队、开放结局或反常观点；可补充是否明确引导评论。',
+      accent: true,
+    },
+  ];
+
+  const fields = [
     {
       title: '核心事件链',
       hint: '一段完整梗概，简述事件顺序是什么。',
@@ -584,37 +678,356 @@ function ScriptBreakdownPanel() {
       accent: true,
     },
     {
-      title: '冲突与转折',
-      hint: '哪里出事，哪里出现新解法？',
-      placeholder: '如：小钢杯装不下面饼是问题，包装袋变成吊锅是转折。',
-      accent: true,
+      title: '可复刻的结构',
+      placeholder: '这个视频的结构公式是什么？对叙事结构进行抽象化提取',
     },
     {
-      title: '人物情绪',
+      title: '观众情绪曲线',
       hint: '状态怎么变化？',
-      placeholder: '如：主角焦急、惊讶、沮丧、重新振作、得意、满足。',
-    },
-    {
-      title: '关键道具',
-      hint: '列出推动故事发展或承载转折的道具。',
-      placeholder: '填写关键道具及其作用。',
+      placeholder: '观众的感觉，情绪曲线\n开头、中段、结尾，观众的感觉如何变化？情绪在哪里上升、停顿或释放？',
     },
     {
       title: '角色',
       hint: '写下主要角色、身份和关系。',
-      placeholder: '填写角色、身份和相互关系。',
-    },
-    {
-      title: '声音边界',
-      hint: '哪里需要台词，哪里靠动作？',
-      placeholder: '填写台词、旁白、环境音与纯动作段落的分工。',
+      placeholder: '角色为什么讨喜？有无反差？\n角色有没有清晰的身份、愿望和性格？\n观众是否知道“他是谁”“他想做什么”“为什么值得关心”？',
     },
   ];
 
-  const buildExportContent = () => {
+  const structureModeOptions = [
+    { value: 'shots', label: '分镜' },
+    { value: 'time', label: '时间' },
+    { value: 'both', label: '分镜＋时间' },
+  ];
+  const activeStructureModeLabel = structureModeOptions.find((option) => option.value === structureMode)?.label || '分镜';
+
+  const coreEventChainRows = [
+    { id: 1, startName: 'core-event-chain-1-start', endName: 'core-event-chain-1-end', startPlaceholder: '1', endPlaceholder: '6', timeStartName: 'core-event-chain-1-time-start', timeEndName: 'core-event-chain-1-time-end', timeStartPlaceholder: '0:00', timeEndPlaceholder: '0:05', contentName: 'core-event-chain-1-content', taskName: 'core-event-chain-1-task', psychologyName: 'core-event-chain-1-psychology' },
+    { id: 2, startName: 'core-event-chain-2-start', endName: 'core-event-chain-2-end', startPlaceholder: '7', endPlaceholder: '9', timeStartName: 'core-event-chain-2-time-start', timeEndName: 'core-event-chain-2-time-end', timeStartPlaceholder: '0:05', timeEndPlaceholder: '0:10', contentName: 'core-event-chain-2-content', taskName: 'core-event-chain-2-task', psychologyName: 'core-event-chain-2-psychology' },
+    { id: 3, startName: 'core-event-chain-3-start', endName: 'core-event-chain-3-end', startPlaceholder: '10', endPlaceholder: '12', timeStartName: 'core-event-chain-3-time-start', timeEndName: 'core-event-chain-3-time-end', timeStartPlaceholder: '0:10', timeEndPlaceholder: '0:15', contentName: 'core-event-chain-3-content', taskName: 'core-event-chain-3-task', psychologyName: 'core-event-chain-3-psychology' },
+  ];
+
+  const updateNextCoreEventStart = (rowIndex, event) => {
+    const nextRow = coreEventChainRows[rowIndex + 1];
+    const endShot = Number(event.currentTarget.value);
+    if (!nextRow || !Number.isInteger(endShot) || endShot < 1) return;
+
+    const nextStartInput = formRef.current?.elements.namedItem(nextRow.startName);
+    if (nextStartInput && typeof nextStartInput.value === 'string') {
+      nextStartInput.value = String(endShot + 1);
+    }
+  };
+
+  const normalizeShortTime = (value) => {
+    const match = value.trim().match(/^(\d{1,2}):([0-5]\d)$/);
+    if (!match) return '';
+    return `${Number(match[1])}:${match[2]}`;
+  };
+
+  const updateNextCoreEventTime = (rowIndex, event) => {
+    const nextRow = coreEventChainRows[rowIndex + 1];
+    const endTime = normalizeShortTime(event.currentTarget.value);
+    if (!nextRow || !endTime) return;
+
+    event.currentTarget.value = endTime;
+    const nextStartInput = formRef.current?.elements.namedItem(nextRow.timeStartName);
+    if (nextStartInput && typeof nextStartInput.value === 'string' && (!nextStartInput.value || nextStartInput.dataset.autoFilled === 'true')) {
+      nextStartInput.value = endTime;
+      nextStartInput.dataset.autoFilled = 'true';
+    }
+  };
+
+  const getCoreEventRangeText = (row, formData, separator = '<br>') => {
+    const shotRange = `${formData.get(row.startName)?.trim() || '（未填写）'} ~ ${formData.get(row.endName)?.trim() || '（未填写）'}`;
+    const timeRange = `${formData.get(row.timeStartName)?.trim() || '（未填写）'} ~ ${formData.get(row.timeEndName)?.trim() || '（未填写）'}`;
+    if (structureMode === 'time') return timeRange;
+    if (structureMode === 'both') return `分镜：${shotRange}${separator}时间：${timeRange}`;
+    return shotRange;
+  };
+
+  const getCoreEventRangeNames = (row) => {
+    if (structureMode === 'time') return [row.timeStartName, row.timeEndName];
+    if (structureMode === 'both') return [row.startName, row.endName, row.timeStartName, row.timeEndName];
+    return [row.startName, row.endName];
+  };
+
+  const getCoreEventChainDetails = (formData) => coreEventChainRows
+    .map((row) => `${activeStructureModeLabel}：${getCoreEventRangeText(row, formData, '\n')}\n内容：${formData.get(row.contentName)?.trim() || '（未填写）'}\n结构任务：${formData.get(row.taskName)?.trim() || '（未填写）'}\n观众心理：${formData.get(row.psychologyName)?.trim() || '（未填写）'}`)
+    .join('\n\n');
+
+  const getAiBreakdownSectionDefinitions = () => [
+    ...(activeVideoType
+      ? activeVideoType.fields.map((field, index) => ({
+        id: `video-type-${field.name}`,
+        label: `2.${index + 1} ${field.title}`,
+        getOwn: (formData) => formData.get(field.name)?.trim() || '（未填写）',
+      }))
+      : []),
+    ...universalFields.map((field, index) => ({
+      id: `universal-${index + 1}`,
+      label: `3.${index + 1} ${field.title}`,
+      getOwn: (formData) => formData.get(field.title)?.trim() || '（未填写）',
+    })),
+    {
+      id: 'story-structure',
+      label: '4. 剧情结构',
+      getOwn: getCoreEventChainDetails,
+    },
+    ...fields.map((field, index) => ({
+      id: `field-${index + 5}`,
+      label: `${index + 5}. ${field.title}`,
+      getOwn: (formData) => formData.get(field.title)?.trim() || '（未填写）',
+    })),
+  ];
+
+  const getAiBreakdownInputName = (id) => `ai-breakdown-${id}`;
+
+  const getAiBreakdownSections = (formData) => getAiBreakdownSectionDefinitions().map((section) => ({
+    ...section,
+    own: section.getOwn(formData),
+    ai: formData.get(getAiBreakdownInputName(section.id))?.trim() || '',
+  }));
+
+  const splitComparisonPoints = (value) => value
+    .replace(/（未填写）/g, '')
+    .replace(/\r\n?/g, '\n')
+    .split('\n')
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  const normalizeComparisonPoint = (value) => value
+    .replace(/^\s*(?:[-+*•]|\d+[.、)）])\s*/, '')
+    .replace(/[\s，,。！？!?；;：:“”"'‘’（）()【】\[\]]/g, '')
+    .toLowerCase();
+
+  const pointsMatch = (first, second) => {
+    const normalizedFirst = normalizeComparisonPoint(first);
+    const normalizedSecond = normalizeComparisonPoint(second);
+    if (!normalizedFirst || !normalizedSecond) return false;
+    return normalizedFirst === normalizedSecond
+      || (Math.min(normalizedFirst.length, normalizedSecond.length) >= 8
+        && (normalizedFirst.includes(normalizedSecond) || normalizedSecond.includes(normalizedFirst)));
+  };
+
+  const getColoredComparison = (section) => {
+    const ownPoints = splitComparisonPoints(section.own);
+    const aiPoints = splitComparisonPoints(section.ai);
+    const ownExtra = ownPoints.filter((point) => !aiPoints.some((aiPoint) => pointsMatch(point, aiPoint)));
+    const aiPointsWithStatus = aiPoints.map((point) => ({
+      text: point,
+      status: ownPoints.some((ownPoint) => pointsMatch(point, ownPoint)) ? 'same' : 'missing',
+    }));
+
+    return { ownExtra, aiPoints: aiPointsWithStatus };
+  };
+
+  const splitAiBreakdownIntoSections = (rawText, definitions) => {
+    const lines = rawText.replace(/\r\n?/g, '\n').split('\n');
+    const matchedHeadings = [];
+
+    lines.forEach((line, lineIndex) => {
+      const normalizedLine = line
+        .replace(/^\s*(?:#{1,6}\s*)?(?:[-+*]\s*)?/, '')
+        .replace(/\*\*|__/g, '')
+        .trim();
+      const section = definitions.find((item) => {
+        if (!normalizedLine.startsWith(item.label)) return false;
+        const followingCharacter = normalizedLine.charAt(item.label.length);
+        return !followingCharacter || /[\s:：(（]/.test(followingCharacter);
+      });
+      if (!section || matchedHeadings.some((item) => item.section.id === section.id)) return;
+
+      const remainder = normalizedLine.slice(section.label.length).trim();
+      matchedHeadings.push({
+        section,
+        lineIndex,
+        inlineContent: /^[：:]/.test(remainder) ? remainder.slice(1).trim() : '',
+      });
+    });
+
+    return matchedHeadings.reduce((values, heading, index) => {
+      const nextHeading = matchedHeadings[index + 1];
+      const blockLines = lines.slice(heading.lineIndex + 1, nextHeading?.lineIndex);
+      const content = [heading.inlineContent, ...blockLines].filter(Boolean).join('\n').trim();
+      if (content) values[heading.section.id] = content;
+      return values;
+    }, {});
+  };
+
+  const renderInlineAiBreakdown = (id, label) => {
+    const coloredComparison = comparison?.sections.find((section) => section.id === id)?.colored;
+
+    return (
+    <details className="inline-ai-breakdown">
+      <summary>
+        <strong>{coloredComparison ? 'AI 对照版' : 'AI 拆解'}</strong>
+        <span>{coloredComparison ? '红色待补、灰色一致、蓝色是你的额外拆解' : '自动整理后显示在这里，也可手动补充'}</span>
+      </summary>
+      {coloredComparison ? (
+        <div className="inline-ai-comparison" aria-label={`AI 对${label}的颜色对照`}>
+          <p className="inline-ai-comparison-note">按换行和相同词句自动对照；颜色是提示，仍可回看或编辑 AI 原文。</p>
+          {coloredComparison.aiPoints.length ? coloredComparison.aiPoints.map((point, index) => (
+            <p className={`inline-ai-comparison-point is-${point.status}`} key={`${point.status}-${index}`}>
+              <span>{point.status === 'missing' ? '待补' : '一致'}</span>
+              {point.text}
+            </p>
+          )) : <p className="inline-ai-comparison-empty">AI 尚未整理到这一项。</p>}
+          {coloredComparison.ownExtra.map((point, index) => (
+            <p className="inline-ai-comparison-point is-extra" key={`extra-${index}`}>
+              <span>你的额外拆解</span>
+              {point}
+            </p>
+          ))}
+          <details className="inline-ai-source">
+            <summary>编辑 AI 原文</summary>
+            <textarea
+              name={getAiBreakdownInputName(id)}
+              value={aiBreakdownValues[id] || ''}
+              rows={3}
+              placeholder={`AI 对“${label}”的拆解会显示在这里`}
+              aria-label={`AI 对${label}的拆解`}
+              onChange={(event) => {
+                setAiBreakdownValues((values) => ({ ...values, [id]: event.target.value }));
+                setComparison(null);
+              }}
+              onInput={resizeTextarea}
+            />
+          </details>
+        </div>
+      ) : (
+        <textarea
+          name={getAiBreakdownInputName(id)}
+          value={aiBreakdownValues[id] || ''}
+          rows={3}
+          placeholder={`AI 对“${label}”的拆解会显示在这里`}
+          aria-label={`AI 对${label}的拆解`}
+          onChange={(event) => setAiBreakdownValues((values) => ({ ...values, [id]: event.target.value }))}
+          onInput={resizeTextarea}
+        />
+      )}
+    </details>
+    );
+  };
+
+  const benchmarkMetadataFieldsByPlatform = {
+    youtube: [
+      { label: '视频标题', name: 'benchmark-video-title', placeholder: '不包含 # 标签', column: 'content' },
+      { label: '视频标签', name: 'benchmark-video-tags', placeholder: '多个标签用 、 分隔', column: 'content' },
+      { label: '视频链接', name: 'benchmark-video-url', placeholder: 'YouTube 视频链接', column: 'content' },
+      { label: '背景音乐', name: 'benchmark-background-music', placeholder: '歌曲或音乐名称', column: 'content' },
+      { label: '频道名称', name: 'benchmark-channel-name', placeholder: '如：@频道 Handle', column: 'content' },
+      { label: '视频时长', name: 'benchmark-video-duration', placeholder: '如：00:32', column: 'metrics' },
+      { label: '播放量', name: 'benchmark-view-count', placeholder: '如：12.3万', column: 'metrics' },
+      { label: '点赞量', name: 'benchmark-like-count', placeholder: '如：8,420', column: 'metrics' },
+      { label: '评论量', name: 'benchmark-comment-count', placeholder: '如：325', column: 'metrics' },
+      { label: '频道主页链接', name: 'benchmark-channel-url', placeholder: 'https://www.youtube.com/@频道Handle', column: 'metrics' },
+    ],
+    douyin: [
+      { label: '视频标题', name: 'benchmark-video-title', placeholder: '不包含 # 标签', column: 'content' },
+      { label: '视频简介', name: 'benchmark-video-description', placeholder: '视频简介正文', column: 'content' },
+      { label: '视频标签', name: 'benchmark-video-tags', placeholder: '多个标签用 、 分隔', column: 'content' },
+      { label: '视频链接', name: 'benchmark-video-url', placeholder: '抖音视频链接', column: 'content' },
+      { label: '背景音乐', name: 'benchmark-background-music', placeholder: '歌曲或音乐名称', column: 'content' },
+      { label: '点赞量', name: 'benchmark-like-count', placeholder: '如：8,420', column: 'metrics' },
+      { label: '评论量', name: 'benchmark-comment-count', placeholder: '如：325', column: 'metrics' },
+      { label: '收藏量', name: 'benchmark-favorite-count', placeholder: '如：1,260', column: 'metrics' },
+      { label: '转发量', name: 'benchmark-share-count', placeholder: '如：320', column: 'metrics' },
+    ],
+  };
+  const benchmarkMetadataFields = benchmarkMetadataFieldsByPlatform[benchmarkPlatform];
+  const benchmarkMetadataColumns = [
+    benchmarkMetadataFields.filter((field) => field.column === 'content'),
+    benchmarkMetadataFields.filter((field) => field.column === 'metrics'),
+  ];
+  const activeBenchmarkPlatform = benchmarkPlatformOptions.find((option) => option.value === benchmarkPlatform) || benchmarkPlatformOptions[0];
+  const activePromptSettingsPlatform = benchmarkPlatformOptions.find((option) => option.value === promptSettingsPlatform) || benchmarkPlatformOptions[0];
+  const activePromptTemplate = benchmarkPromptTemplates[benchmarkPlatform] || defaultBenchmarkPrompts[benchmarkPlatform];
+  const promptSettingsTemplate = benchmarkPromptTemplates[promptSettingsPlatform] || defaultBenchmarkPrompts[promptSettingsPlatform];
+
+  React.useEffect(() => {
+    try {
+      const savedDraft = window.localStorage.getItem('script-breakdown-draft-v1');
+      if (savedDraft && formRef.current) {
+        const draft = JSON.parse(savedDraft);
+        Object.entries(draft).forEach(([name, value]) => {
+          const control = formRef.current.elements.namedItem(name);
+          if (control && typeof control.value === 'string') control.value = value;
+        });
+        const restoredVideoType = videoTypeOptions.find((option) => option.value === draft['video-type']);
+        if (restoredVideoType) setSelectedVideoType(restoredVideoType.value);
+        if (structureModeOptions.some((option) => option.value === draft['structure-mode'])) {
+          setStructureMode(draft['structure-mode']);
+        }
+        const restoredBenchmarkVideoUrl = typeof draft['benchmark-video'] === 'string' ? draft['benchmark-video'] : '';
+        setBenchmarkVideoUrl(restoredBenchmarkVideoUrl);
+        setBenchmarkPlatform(detectBenchmarkPlatform(restoredBenchmarkVideoUrl));
+        const restoredVideoTypeValues = Object.fromEntries(
+          videoTypeOptions
+            .flatMap((option) => option.fields)
+            .filter((field) => typeof draft[field.name] === 'string')
+            .map((field) => [field.name, draft[field.name]]),
+        );
+        setVideoTypeValues(restoredVideoTypeValues);
+        const restoredAiBreakdownValues = Object.fromEntries(
+          Object.entries(draft)
+            .filter(([name, value]) => name.startsWith('ai-breakdown-') && typeof value === 'string')
+            .map(([name, value]) => [name.replace(/^ai-breakdown-/, ''), value]),
+        );
+        setAiBreakdownValues(restoredAiBreakdownValues);
+        setNotice('已恢复上次保存的练习');
+      }
+
+      const savedYouTubePrompt = window.localStorage.getItem('benchmark-video-prompt-youtube-v1') || window.localStorage.getItem('benchmark-video-prompt-v1');
+      const savedDouyinPrompt = window.localStorage.getItem('benchmark-video-prompt-douyin-v1');
+      if (savedYouTubePrompt || savedDouyinPrompt) {
+        setBenchmarkPromptTemplates((templates) => ({
+          ...templates,
+          ...(savedYouTubePrompt ? { youtube: savedYouTubePrompt } : {}),
+          ...(savedDouyinPrompt ? { douyin: savedDouyinPrompt } : {}),
+        }));
+      }
+    } catch {
+      // 本地草稿读取失败时仍保持空白练习表单。
+    }
+  }, []);
+
+  React.useEffect(() => {
+    if (!notice) return undefined;
+    const timer = window.setTimeout(() => setNotice(''), 2600);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
+
+  const getScriptFormData = () => {
     const formData = new FormData(formRef.current);
+    formData.set('video-type', selectedVideoType);
+    formData.set('structure-mode', structureMode);
+    Object.entries(videoTypeValues).forEach(([name, value]) => formData.set(name, value));
+    Object.entries(aiBreakdownValues).forEach(([id, value]) => formData.set(`ai-breakdown-${id}`, value));
+    return formData;
+  };
+
+  const buildExportContent = () => {
+    const formData = getScriptFormData();
     const title = formData.get('title')?.trim() || '脚本拆解';
-    const sections = fields.map((field, index) => `## ${index + 2}. ${field.title}\n\n${formData.get(field.title)?.trim() || '（未填写）'}`);
+    const benchmarkDetails = benchmarkMetadataFields
+      .map((field) => `${field.label}：${formData.get(field.name)?.trim() || '（未填写）'}`)
+      .join('\n');
+    const videoTypeDetails = activeVideoType
+      ? activeVideoType.fields.map((field) => `#### ${field.title}\n\n${formData.get(field.name)?.trim() || '（未填写）'}`).join('\n\n')
+      : '';
+    const universalDetails = universalFields
+      .map((field) => `### ${field.title}\n\n${formData.get(field.title)?.trim() || '（未填写）'}`)
+      .join('\n\n');
+    const coreEventChainTable = [
+      `${activeStructureModeLabel} | 内容 | 结构任务 | 观众心理`,
+      '--- | --- | --- | ---',
+      ...coreEventChainRows.map((row) => [
+        getCoreEventRangeText(row, formData),
+        formData.get(row.contentName)?.trim() || '（未填写）',
+        formData.get(row.taskName)?.trim() || '（未填写）',
+        formData.get(row.psychologyName)?.trim() || '（未填写）',
+      ].map((value) => String(value).replaceAll('|', '\\|')).join(' | ')),
+    ].map((row) => `| ${row} |`).join('\n');
+    const sections = fields.map((field, index) => `## ${index + 5}. ${field.title}\n\n${formData.get(field.title)?.trim() || '（未填写）'}`);
     const markdown = [
       `# ${title}`,
       '',
@@ -622,10 +1035,226 @@ function ScriptBreakdownPanel() {
       '',
       formData.get('benchmark-video')?.trim() || '（未填写）',
       '',
+      '### 视频资料',
+      '',
+      benchmarkDetails || '（未填写）',
+      '',
+      '## 2. 视频类型',
+      '',
+      activeVideoType?.label || '（未选择）',
+      ...(videoTypeDetails ? ['', '### 拆解维度', '', videoTypeDetails] : []),
+      '',
+      '## 3. 通用传播维度',
+      '',
+      universalDetails,
+      '',
+      '## 4. 剧情结构',
+      '',
+      coreEventChainTable,
+      '',
       ...sections,
       '',
     ].join('\n');
     return { markdown, title };
+  };
+
+  const getFormValues = () => Object.fromEntries(getScriptFormData().entries());
+
+  const fillBenchmarkMetadata = (pastedText) => {
+    if (!formRef.current) return 0;
+    const parsedValues = new Map();
+    pastedText.split(/\r?\n/).forEach((line) => {
+      const normalizedLine = line
+        .replace(/^\s*(?:[-+•]\s+|\d+[.)]\s+)?/, '')
+        .replace(/[*_`]/g, '')
+        .trim();
+      const separatorIndex = normalizedLine.indexOf('：') >= 0 ? normalizedLine.indexOf('：') : normalizedLine.indexOf(':');
+      if (separatorIndex < 0) return;
+
+      const label = normalizedLine.slice(0, separatorIndex).trim();
+      const value = normalizedLine.slice(separatorIndex + 1).trim();
+      const matchingField = benchmarkMetadataFields.find((field) => field.label === label);
+      if (matchingField) parsedValues.set(matchingField.name, value);
+    });
+
+    parsedValues.forEach((value, name) => {
+      const control = formRef.current.elements.namedItem(name);
+      if (control && typeof control.value === 'string') control.value = value;
+    });
+    return parsedValues.size;
+  };
+
+  const pasteBenchmarkMetadata = (event) => {
+    const filledCount = fillBenchmarkMetadata(event.clipboardData.getData('text/plain'));
+    if (!filledCount) return;
+    event.preventDefault();
+    setNotice(`已填入 ${filledCount} 项视频资料`);
+  };
+
+  const applyBenchmarkMetadataPasteText = (text) => {
+    setBenchmarkMetadataPasteText(text);
+    const filledCount = fillBenchmarkMetadata(text);
+    if (!filledCount) return;
+
+    setBenchmarkMetadataPasteText('');
+    setIsBenchmarkMetadataPasteOpen(false);
+    setNotice(`已填入 ${filledCount} 项视频资料`);
+  };
+
+  const handleBenchmarkMetadataPasteText = (event) => {
+    event.preventDefault();
+    applyBenchmarkMetadataPasteText(event.clipboardData.getData('text/plain'));
+  };
+
+  const copyBenchmarkMetadata = async () => {
+    const formData = new FormData(formRef.current);
+    const metadataText = benchmarkMetadataFields
+      .map((field) => `${field.label}：${formData.get(field.name)?.trim() || ''}`)
+      .join('\n');
+
+    try {
+      await navigator.clipboard.writeText(metadataText);
+      setNotice('视频资料已复制');
+    } catch {
+      setNotice('复制失败，请允许浏览器访问剪贴板');
+    }
+  };
+
+  const copyBenchmarkMetadataPrompt = async () => {
+    const benchmarkVideo = new FormData(formRef.current).get('benchmark-video')?.trim();
+    const prompt = activePromptTemplate.includes('{{视频链接}}')
+      ? activePromptTemplate.replaceAll('{{视频链接}}', benchmarkVideo || '')
+      : benchmarkVideo
+        ? `视频链接：${benchmarkVideo}\n\n${activePromptTemplate}`
+        : activePromptTemplate;
+
+    try {
+      await navigator.clipboard.writeText(prompt);
+      setNotice(benchmarkVideo ? `${activeBenchmarkPlatform.label} 视频资料提示词已复制，已附视频链接` : `${activeBenchmarkPlatform.label} 视频资料提示词已复制`);
+    } catch {
+      setNotice('复制失败，请允许浏览器访问剪贴板');
+    }
+  };
+
+  const saveBenchmarkPromptSettings = () => {
+    try {
+      window.localStorage.setItem(
+        `benchmark-video-prompt-${promptSettingsPlatform}-v1`,
+        promptSettingsTemplate.trim() || defaultBenchmarkPrompts[promptSettingsPlatform],
+      );
+      setIsBenchmarkPromptSettingsOpen(false);
+      setNotice('视频资料提示词已保存');
+    } catch {
+      setNotice('保存失败，请检查浏览器存储权限');
+    }
+  };
+
+  const resetBenchmarkPrompt = () => {
+    setBenchmarkPromptTemplates((templates) => ({
+      ...templates,
+      [promptSettingsPlatform]: defaultBenchmarkPrompts[promptSettingsPlatform],
+    }));
+    window.localStorage.removeItem(`benchmark-video-prompt-${promptSettingsPlatform}-v1`);
+    if (promptSettingsPlatform === 'youtube') window.localStorage.removeItem('benchmark-video-prompt-v1');
+    setNotice('已恢复默认提示词');
+  };
+
+  const buildAiPrompt = () => {
+    const formData = formRef.current ? getScriptFormData() : new FormData();
+    const benchmarkVideo = formData.get('benchmark-video')?.trim();
+    if (!benchmarkVideo) return '';
+
+    const sectionList = [
+      '1. 对标视频',
+      `2. 视频类型：${activeVideoType?.label || '未选择'}`,
+      ...getAiBreakdownSectionDefinitions().map((section) => section.label),
+    ].join('\n');
+    return `请独立拆解下面这个对标视频的脚本，不要参考或复述我的答案。\n\n对标视频：${benchmarkVideo}\n\n请严格按以下编号和标题作答：每个标题必须单独占一行，标题文字和编号不要改写；标题下面再写内容。无法判断的项目写“（未分析）”。不要用表格，不要合并项目。\n\n${sectionList}\n\n重点说明故事如何展开、冲突在哪里出现、转折如何解决，以及声音与动作怎样分工。`;
+  };
+
+  const saveDraft = () => {
+    try {
+      window.localStorage.setItem('script-breakdown-draft-v1', JSON.stringify(getFormValues()));
+      setNotice('当前练习已保存在此浏览器');
+    } catch {
+      setNotice('保存失败，请检查浏览器存储权限');
+    }
+  };
+
+  const copyAiPrompt = async () => {
+    const prompt = buildAiPrompt();
+    if (!prompt) {
+      setNotice('请先粘贴对标视频链接');
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(prompt);
+      setNotice('AI 拆解提示词已复制');
+    } catch {
+      setNotice('复制失败，请允许浏览器访问剪贴板');
+    }
+  };
+
+  const distributeAiBreakdown = () => {
+    const formData = getScriptFormData();
+    const rawAiBreakdown = formData.get('ai-analysis')?.trim();
+    if (!rawAiBreakdown) {
+      setNotice('请先粘贴 AI 的完整拆解结果');
+      return;
+    }
+
+    const definitions = getAiBreakdownSectionDefinitions();
+    const distributedValues = splitAiBreakdownIntoSections(rawAiBreakdown, definitions);
+    const matchedCount = Object.keys(distributedValues).length;
+
+    if (!matchedCount) {
+      setAiDistributionSummary({ matched: 0, total: definitions.length });
+      setNotice('没有识别到对应标题；请让 AI 保留提示词中的编号和标题');
+      return;
+    }
+
+    setAiBreakdownValues((values) => ({ ...values, ...distributedValues }));
+    setAiDistributionSummary({ matched: matchedCount, total: definitions.length });
+    setComparison(null);
+    setNotice(`已整理 ${matchedCount}/${definitions.length} 项；其余原文仍保留在上方，可手动补充`);
+  };
+
+  const showComparison = () => {
+    const formData = getScriptFormData();
+    const hasCoreEventChain = coreEventChainRows.some((row) => [...getCoreEventRangeNames(row), row.contentName, row.taskName, row.psychologyName]
+      .some((name) => formData.get(name)?.trim()));
+    const hasOwnBreakdown = [...universalFields, ...fields].some((field) => formData.get(field.title)?.trim())
+      || activeVideoType?.fields.some((field) => formData.get(field.name)?.trim())
+      || hasCoreEventChain;
+    const aiAnalysis = formData.get('ai-analysis')?.trim();
+
+    if (!hasOwnBreakdown || !aiAnalysis) {
+      setNotice('完成自己的拆解并粘贴 AI 结果后，才可以对比');
+      return;
+    }
+
+    const sections = getAiBreakdownSections(formData);
+    if (!sections.some((section) => section.ai)) {
+      setNotice('请先点击“整理到各项”，或在对应项目下手动补充 AI 拆解');
+      return;
+    }
+
+    const coloredSections = sections.filter((section) => section.ai).map((section) => ({
+      ...section,
+      colored: getColoredComparison(section),
+    }));
+    const summary = coloredSections.reduce((total, section) => ({
+      same: total.same + section.colored.aiPoints.filter((point) => point.status === 'same').length,
+      missing: total.missing + section.colored.aiPoints.filter((point) => point.status === 'missing').length,
+      extra: total.extra + section.colored.ownExtra.length,
+    }), { same: 0, missing: 0, extra: 0 });
+
+    setComparison({
+      title: formData.get('title')?.trim() || '本次脚本拆解',
+      sections: coloredSections,
+      summary,
+    });
   };
 
   const openExportDialog = () => {
@@ -677,12 +1306,18 @@ function ScriptBreakdownPanel() {
         <span className="section-icon section-icon-blue"><Scissors size={18} /></span>
         <div>
           <h2>脚本拆解</h2>
-          <p>脚本拆解与复刻：讲清楚发生了什么 / 故事内核架构。</p>
+          <p>先自己拆解，再邀请 AI 独立作答，最后对照答案。</p>
         </div>
-        <button className="script-breakdown-export" type="button" onClick={openExportDialog} aria-label="导出" title="导出">
-          <Download size={18} />
-        </button>
+        <div className="script-breakdown-actions">
+          <button className="script-breakdown-save" type="button" onClick={saveDraft}>
+            <Save size={17} /> 保存
+          </button>
+          <button className="script-breakdown-export" type="button" onClick={openExportDialog} aria-label="导出" title="导出">
+            <Download size={18} /> 导出
+          </button>
+        </div>
       </div>
+      {notice && <p className="script-breakdown-notice" role="status">{notice}</p>}
       {isExportOpen && (
         <section className="script-export-popover" aria-label="导出选项">
           <h3>导出</h3>
@@ -715,20 +1350,344 @@ function ScriptBreakdownPanel() {
           <span>标题</span>
           <input name="title" placeholder="x月x日 脚本拆解v1" />
         </label>
-        <label className="script-breakdown-field">
-          <span>1. 对标视频</span>
-          <input name="benchmark-video" type="url" placeholder="粘贴对标视频链接" />
-        </label>
-        {fields.map((field, index) => (
-          <label className="script-breakdown-field" key={field.title}>
-            <span className="script-breakdown-label">
-              <strong className={field.accent ? 'script-breakdown-accent' : undefined}>{index + 2}. {field.title}</strong>
-              {field.hint && <em>{field.hint}</em>}
+        <div className="script-breakdown-field">
+          <label htmlFor="benchmark-video">1. 对标视频</label>
+          <div className="script-breakdown-video-row">
+            <input
+              id="benchmark-video"
+              name="benchmark-video"
+              type="url"
+              value={benchmarkVideoUrl}
+              placeholder="粘贴抖音或 YouTube 视频链接"
+              onChange={(event) => {
+                const videoUrl = event.target.value;
+                setBenchmarkVideoUrl(videoUrl);
+                setBenchmarkPlatform(detectBenchmarkPlatform(videoUrl));
+              }}
+            />
+            <span className={`benchmark-platform-badge ${benchmarkPlatform}`}>
+              {benchmarkVideoUrl.trim() ? `已识别：${activeBenchmarkPlatform.label}` : '默认：YouTube'}
             </span>
-            <textarea name={field.title} rows={3} placeholder={field.placeholder} onInput={resizeTextarea} />
-          </label>
+            <div className="benchmark-prompt-actions" aria-label="视频资料提示词操作">
+              <button type="button" onClick={copyBenchmarkMetadataPrompt} title="复制视频资料提示词">
+                <Copy size={17} /> 复制提示词
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setPromptSettingsPlatform(benchmarkPlatform);
+                  setIsBenchmarkPromptSettingsOpen((isOpen) => !isOpen);
+                }}
+                aria-label="设置视频资料提示词"
+                aria-expanded={isBenchmarkPromptSettingsOpen}
+                title="设置提示词"
+              >
+                <Settings2 size={17} />
+              </button>
+            </div>
+          </div>
+        </div>
+        {isBenchmarkPromptSettingsOpen && (
+          <section className="benchmark-prompt-settings" aria-labelledby="benchmark-prompt-settings-title">
+            <div>
+              <h3 id="benchmark-prompt-settings-title">视频资料提示词 · {activePromptSettingsPlatform.label}</h3>
+              <p>可按你的习惯修改；保留 <code>{'{{视频链接}}'}</code> 会在复制时自动替换为当前链接。</p>
+            </div>
+            <div className="benchmark-prompt-platform-tabs" role="group" aria-label="选择提示词平台">
+              {benchmarkPlatformOptions.map((platform) => (
+                <button
+                  type="button"
+                  className={promptSettingsPlatform === platform.value ? 'active' : undefined}
+                  aria-pressed={promptSettingsPlatform === platform.value}
+                  key={platform.value}
+                  onClick={() => setPromptSettingsPlatform(platform.value)}
+                >
+                  {platform.label}
+                </button>
+              ))}
+            </div>
+            <textarea
+              value={promptSettingsTemplate}
+              onChange={(event) => setBenchmarkPromptTemplates((templates) => ({ ...templates, [promptSettingsPlatform]: event.target.value }))}
+              rows={14}
+              aria-label={`${activePromptSettingsPlatform.label} 视频资料提示词内容`}
+            />
+            <div className="benchmark-prompt-settings-actions">
+              <button type="button" className="text-button" onClick={resetBenchmarkPrompt}>恢复默认</button>
+              <button type="button" className="primary-button" onClick={saveBenchmarkPromptSettings}>保存提示词</button>
+            </div>
+          </section>
+        )}
+        <details className="benchmark-video-details" open={isBenchmarkMetadataPasteOpen || undefined}>
+          <summary>
+            <span className="benchmark-metadata-summary-copy">
+              <strong>视频资料</strong>
+              <span>点击展开表格；点“粘贴”后在输入框按 Ctrl+V 即可自动填入。</span>
+            </span>
+            <span className="benchmark-metadata-actions" aria-label="视频资料操作">
+              <button type="button" onClick={(event) => { event.preventDefault(); event.stopPropagation(); copyBenchmarkMetadata(); }} title="复制视频资料">
+                <Copy size={15} /> 复制
+              </button>
+              <button type="button" onClick={(event) => { event.preventDefault(); event.stopPropagation(); setIsBenchmarkMetadataPasteOpen(true); }} title="打开粘贴框">
+                <ClipboardPaste size={15} /> 粘贴
+              </button>
+            </span>
+          </summary>
+          {isBenchmarkMetadataPasteOpen && (
+            <div className="benchmark-metadata-paste-panel">
+              <div className="benchmark-metadata-paste-heading">
+                <span>在这里按 Ctrl+V，识别后会自动填入表格</span>
+                <button type="button" onClick={() => { setBenchmarkMetadataPasteText(''); setIsBenchmarkMetadataPasteOpen(false); }}>取消</button>
+              </div>
+              <textarea
+                value={benchmarkMetadataPasteText}
+                onChange={(event) => applyBenchmarkMetadataPasteText(event.target.value)}
+                onPaste={handleBenchmarkMetadataPasteText}
+                rows={4}
+                autoFocus
+                aria-label="粘贴视频资料内容"
+                placeholder="在这里粘贴视频标题、标签、链接、播放量等资料"
+              />
+            </div>
+          )}
+          <div className="benchmark-metadata-grid" aria-label="视频资料">
+            {benchmarkMetadataColumns.map((column, columnIndex) => (
+              <div className="benchmark-metadata-column" key={columnIndex}>
+                {column.map((field) => (
+                  <label className="benchmark-metadata-field" key={field.name}>
+                    <span>{field.label}</span>
+                    <input name={field.name} placeholder={field.placeholder} aria-label={field.label} onPaste={field.name === 'benchmark-video-title' ? pasteBenchmarkMetadata : undefined} />
+                  </label>
+                ))}
+              </div>
+            ))}
+          </div>
+        </details>
+        <section className="video-type-section" aria-labelledby="video-type-title">
+          <div className="video-type-heading">
+            <div>
+              <strong id="video-type-title">2. 视频类型</strong>
+              <span>选择后展示对应的拆解维度</span>
+            </div>
+            {activeVideoType && <em>{activeVideoType.label}</em>}
+          </div>
+          <div className="video-type-options" role="group" aria-label="选择视频类型">
+            {videoTypeOptions.map((option) => {
+              const isSelected = option.value === selectedVideoType;
+              return (
+                <button
+                  className={isSelected ? 'video-type-option selected' : 'video-type-option'}
+                  key={option.value}
+                  type="button"
+                  aria-pressed={isSelected}
+                  onClick={() => {
+                    setSelectedVideoType(option.value);
+                    setNotice(`已选择“${option.label}”，已填写内容会保留`);
+                  }}
+                >
+                  <strong>{option.label}</strong>
+                  <span>{option.description}</span>
+                </button>
+              );
+            })}
+          </div>
+          {activeVideoType && (
+            <div className="video-type-breakdown" aria-live="polite">
+              <div className="video-type-breakdown-heading">
+                <strong>拆解维度</strong>
+                <span>{activeVideoType.description}</span>
+              </div>
+              {activeVideoType.fields.map((field, index) => (
+                <div className="script-breakdown-field video-type-field" key={field.name}>
+                  <label>
+                    <span className="script-breakdown-label">
+                      <strong>2.{index + 1} {field.title}</strong>
+                      <em>{field.hint}</em>
+                    </span>
+                    <textarea
+                      name={field.name}
+                      value={videoTypeValues[field.name] || ''}
+                      rows={3}
+                      placeholder={field.placeholder}
+                      onChange={(event) => setVideoTypeValues((values) => ({ ...values, [field.name]: event.target.value }))}
+                      onInput={resizeTextarea}
+                    />
+                  </label>
+                  {renderInlineAiBreakdown(`video-type-${field.name}`, `2.${index + 1} ${field.title}`)}
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+        <section className="video-type-section universal-dimensions-section" aria-labelledby="universal-dimensions-title">
+          <div className="video-type-heading">
+            <div>
+              <strong id="universal-dimensions-title">3. 通用传播维度</strong>
+              <span>适用于所有视频类型的传播拆解</span>
+            </div>
+          </div>
+          <div className="video-type-breakdown">
+            {universalFields.map((field, index) => (
+              <div className="script-breakdown-field video-type-field" key={field.title}>
+                <label>
+                  <span className="script-breakdown-label">
+                    <strong className="script-breakdown-accent">
+                      3.{index + 1} {field.title}
+                      {index === 0 && <span className="script-breakdown-priority-star" role="img" aria-label="重点维度">⭐</span>}
+                    </strong>
+                  </span>
+                  <textarea name={field.title} rows={3} placeholder={field.placeholder} onInput={resizeTextarea} />
+                </label>
+                {renderInlineAiBreakdown(`universal-${index + 1}`, `3.${index + 1} ${field.title}`)}
+              </div>
+            ))}
+          </div>
+        </section>
+        <section className="core-event-chain-structure" aria-labelledby="core-event-chain-structure-title">
+          <h3 id="core-event-chain-structure-title">4. 剧情结构 <span className="script-breakdown-priority-star" role="img" aria-label="重点维度">⭐</span></h3>
+          <div className="core-event-chain-mode-switcher" role="group" aria-label="剧情结构填写方式">
+            {structureModeOptions.map((option) => (
+              <button
+                className={structureMode === option.value ? 'active' : undefined}
+                type="button"
+                key={option.value}
+                aria-pressed={structureMode === option.value}
+                onClick={() => setStructureMode(option.value)}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+          <div className={`core-event-chain-table mode-${structureMode}`}>
+            <table>
+            <thead>
+              <tr>
+                <th scope="col">分镜／时间</th>
+                <th scope="col">内容</th>
+                <th scope="col">结构任务</th>
+                <th scope="col">观众心理</th>
+              </tr>
+            </thead>
+            <tbody>
+              {coreEventChainRows.map((row) => (
+                <tr key={row.id}>
+                  <th scope="row">
+                    <span className="core-event-chain-ranges">
+                      <span className="core-event-chain-range core-event-chain-shot-range">
+                        <input type="number" min="1" inputMode="numeric" name={row.startName} placeholder={row.startPlaceholder} aria-label={`分镜起始编号，第 ${row.id} 行`} />
+                        <span>~</span>
+                        <input type="number" min="1" inputMode="numeric" name={row.endName} placeholder={row.endPlaceholder} aria-label={`分镜结束编号，第 ${row.id} 行`} onChange={(event) => updateNextCoreEventStart(row.id - 1, event)} />
+                      </span>
+                      <span className="core-event-chain-range core-event-chain-time-range">
+                        <input type="text" inputMode="text" pattern="\d{1,2}:\d{2}" name={row.timeStartName} placeholder={row.timeStartPlaceholder} aria-label={`时间起始，第 ${row.id} 行`} onInput={(event) => { delete event.currentTarget.dataset.autoFilled; }} />
+                        <span>~</span>
+                        <input type="text" inputMode="text" pattern="\d{1,2}:\d{2}" name={row.timeEndName} placeholder={row.timeEndPlaceholder} aria-label={`时间结束，第 ${row.id} 行`} onChange={(event) => updateNextCoreEventTime(row.id - 1, event)} />
+                      </span>
+                    </span>
+                  </th>
+                  <td><input name={row.contentName} /></td>
+                  <td><input name={row.taskName} /></td>
+                  <td><input name={row.psychologyName} /></td>
+                </tr>
+              ))}
+            </tbody>
+            </table>
+          </div>
+          {renderInlineAiBreakdown('story-structure', '4. 剧情结构')}
+        </section>
+        {fields.map((field, index) => (
+          <div className="script-breakdown-field" key={field.title}>
+            <label>
+              <span className="script-breakdown-label">
+                <strong className={field.accent ? 'script-breakdown-accent' : undefined}>
+                  {index + 5}. {field.title}
+                  <span className="script-breakdown-priority-star" role="img" aria-label="重点维度">⭐</span>
+                </strong>
+                {field.hint && <em>{field.hint}</em>}
+              </span>
+              <textarea name={field.title} rows={3} placeholder={field.placeholder} onInput={resizeTextarea} />
+            </label>
+            {renderInlineAiBreakdown(`field-${index + 5}`, `${index + 5}. ${field.title}`)}
+          </div>
         ))}
+        <section className="ai-breakdown-step" aria-labelledby="ai-breakdown-title">
+          <div className="ai-breakdown-step-heading">
+            <div>
+              <span className="script-breakdown-step-number">2</span>
+              <h3 id="ai-breakdown-title">让 AI 独立拆解</h3>
+            </div>
+            <p>将 AI 的完整回答粘贴在这里，点击“整理到各项”后，系统会按对应维度放入各项下方的 AI 拆解框。原始回答会保留，方便随时回看。</p>
+          </div>
+          <div className="ai-prompt-control-row">
+            <details className="ai-prompt-preview">
+              <summary>AI 拆解提示词</summary>
+              <textarea
+                readOnly
+                rows={8}
+                value={buildAiPrompt()}
+                placeholder="填写对标视频链接后，这里会生成 AI 拆解提示词"
+                aria-label="AI 拆解提示词"
+              />
+            </details>
+            <button className="script-breakdown-copy" type="button" onClick={copyAiPrompt}>
+              <Copy size={17} /> 复制 AI 拆解提示词
+            </button>
+          </div>
+          <label className="script-breakdown-field ai-result-field">
+            <span className="script-breakdown-label ai-result-label">
+              <span>
+                <strong>AI 拆解结果</strong>
+                <em>粘贴后点“整理到各项”；原始回答会始终保留。</em>
+              </span>
+              <button className="script-breakdown-distribute" type="button" onClick={distributeAiBreakdown}>
+                <ClipboardPaste size={17} /> 整理到各项
+              </button>
+            </span>
+            <textarea
+              name="ai-analysis"
+              rows={8}
+              placeholder="在这里粘贴 AI 的脚本拆解回答"
+              onInput={(event) => {
+                resizeTextarea(event);
+                setAiDistributionSummary(null);
+                setComparison(null);
+              }}
+            />
+          </label>
+          {aiDistributionSummary && (
+            <p className="ai-distribution-summary">
+              已识别 {aiDistributionSummary.matched}/{aiDistributionSummary.total} 项；未识别内容仍保留在原始回答中。
+            </p>
+          )}
+        </section>
+        <section className="script-comparison-action" aria-label="对比答案">
+          <div>
+            <span className="script-breakdown-step-number">3</span>
+            <h3>生成颜色对照</h3>
+            <p>根据你的拆解与 AI 拆解，自动生成逐项对照：红色提示待补要点，灰色表示内容一致，蓝色标出你的额外拆解。结果直接显示在各项下方的“AI 对照版”中。</p>
+          </div>
+          <button className="primary-button script-compare-button" type="button" onClick={showComparison}>
+            <Sparkles size={17} /> 生成颜色对照
+          </button>
+        </section>
       </form>
+      {comparison && (
+        <section className="script-comparison-panel" aria-labelledby="script-comparison-title">
+          <div className="script-comparison-heading">
+            <div>
+              <span className="section-icon section-icon-purple"><Sparkles size={18} /></span>
+              <h3 id="script-comparison-title">{comparison.title} · 对照已生成</h3>
+            </div>
+            <button className="text-button" type="button" onClick={() => setComparison(null)}>收起</button>
+          </div>
+          <p className="script-comparison-summary">颜色已放回每个项目下方的 AI 对照版，不再重复展示左右两栏。</p>
+          <div className="script-comparison-totals" aria-label="本次颜色对照汇总">
+            <span className="is-missing">红色待补 {comparison.summary.missing} 条</span>
+            <span className="is-same">灰色一致 {comparison.summary.same} 条</span>
+            <span className="is-extra">蓝色额外 {comparison.summary.extra} 条</span>
+          </div>
+        </section>
+      )}
     </section>
   );
 }
