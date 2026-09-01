@@ -10,6 +10,10 @@ export const pages = {
 
 export const tabs = {
   dashboard: 'dashboard',
+  creator: 'creator',
+  creatorProjects: 'creator-projects',
+  creatorMaterials: 'creator-materials',
+  creatorReview: 'creator-review',
   notes: 'notes',
   tasks: 'tasks',
   breakdown: 'breakdown',

@@ -11,10 +11,12 @@ import {
   Database,
   Download,
   FileText,
+  Film,
   Flame,
   Github,
   House,
   ListTodo,
+  LibraryBig,
   LogIn,
   LogOut,
   NotebookPen,
@@ -38,6 +40,7 @@ import { ForgotPasswordPage, LoginPage, RegisterPage, ResetPasswordPage } from '
 import { HomePage } from './pages/HomePage';
 import { LongTermTasksPanel } from './components/LongTermTasksPanel';
 import { SubscriptionsPanel } from './components/SubscriptionsPanel';
+import { CreatorDashboard } from './components/CreatorDashboard';
 import {
   formatDate,
   formatFullDate,
@@ -407,19 +410,61 @@ function WorkspacePage({ session, profile, initialTab, onProfileChange, onLogin,
   const importantTodayTasks = todayTasks.filter(
     (task) => task.status !== 'completed' && task.matrix_category.startsWith('important_'),
   );
-  const isContentTab = [tabs.notes, tabs.breakdown, tabs.publicNotes].includes(activeTab);
+  const creatorTabs = [tabs.creator, tabs.creatorProjects, tabs.breakdown, tabs.creatorMaterials, tabs.creatorReview];
+  const isCreatorTab = creatorTabs.includes(activeTab);
+  const workspaceTitle = {
+    [tabs.creator]: '创作概览',
+    [tabs.creatorProjects]: '项目',
+    [tabs.breakdown]: '拆解学习',
+    [tabs.creatorMaterials]: '素材库',
+    [tabs.creatorReview]: '复盘',
+    [tabs.notes]: '笔记',
+    [tabs.tasks]: '任务',
+    [tabs.subscriptions]: '订阅',
+    [tabs.publicNotes]: '公开笔记',
+    [tabs.profile]: '设置',
+  }[activeTab];
+  const workspaceDescription = {
+    [tabs.creator]: '查看当前创作节奏，并回到最需要推进的一步。',
+    [tabs.creatorProjects]: '管理每支视频的制作步骤；本阶段不与个人任务合并。',
+    [tabs.breakdown]: '按故事、情绪和传播维度，拆解对标视频的脚本结构。',
+    [tabs.creatorMaterials]: '沉淀并复用创作中常用的提示词与参考资料。',
+    [tabs.creatorReview]: '回看创作过程中的阶段记录与学习沉淀。',
+    [tabs.notes]: `共 ${notes.length} 篇笔记，记录想法并决定内容是否公开。`,
+    [tabs.tasks]: `今天有 ${todayTasks.length} 项任务，任务列表、日历和四象限都集中在这里。`,
+  }[activeTab];
 
   return (
     <section className={`workspace-frame workspace-theme-${theme}`}>
       <aside className="workspace-sidebar">
-        <nav className="workspace-nav" aria-label="私人工作台导航">
-          <SidebarButton icon={House} label="主页" active={activeTab === tabs.dashboard} onClick={() => setActiveTab(tabs.dashboard)} />
-          <SidebarButton icon={NotebookPen} label="内容库" active={isContentTab} onClick={() => setActiveTab(tabs.breakdown)} />
-          <SidebarButton icon={CheckCircle2} label="任务中心" active={activeTab === tabs.tasks} onClick={() => setActiveTab(tabs.tasks)} />
-          <SidebarButton icon={Wifi} label="订阅管理" active={activeTab === tabs.subscriptions} onClick={() => setActiveTab(tabs.subscriptions)} />
+        <div className="workspace-mode-switcher" role="tablist" aria-label="工作模式">
+          <button type="button" role="tab" aria-selected={!isCreatorTab} className={!isCreatorTab ? 'active' : ''} onClick={() => setActiveTab(tabs.dashboard)}>个人管理</button>
+          <button type="button" role="tab" aria-selected={isCreatorTab} className={isCreatorTab ? 'active' : ''} onClick={() => setActiveTab(tabs.creator)}>创作工作室</button>
+        </div>
+
+        <nav className="workspace-nav" aria-label={isCreatorTab ? '创作工作室导航' : '个人管理导航'}>
+          {isCreatorTab ? <>
+            <SidebarButton icon={Target} label="创作概览" active={activeTab === tabs.creator} onClick={() => setActiveTab(tabs.creator)} />
+            <SidebarButton icon={Film} label="项目" active={activeTab === tabs.creatorProjects} onClick={() => setActiveTab(tabs.creatorProjects)} />
+            <SidebarButton icon={Scissors} label="拆解学习" active={activeTab === tabs.breakdown} onClick={() => setActiveTab(tabs.breakdown)} />
+            <SidebarButton icon={LibraryBig} label="素材库" active={activeTab === tabs.creatorMaterials} onClick={() => setActiveTab(tabs.creatorMaterials)} />
+            <SidebarButton icon={Sparkles} label="复盘" active={activeTab === tabs.creatorReview} onClick={() => setActiveTab(tabs.creatorReview)} />
+          </> : <>
+            <SidebarButton icon={House} label="今日" active={activeTab === tabs.dashboard} onClick={() => setActiveTab(tabs.dashboard)} />
+            <SidebarButton icon={CheckCircle2} label="任务" active={activeTab === tabs.tasks} onClick={() => setActiveTab(tabs.tasks)} />
+            <SidebarButton icon={NotebookPen} label="笔记" active={activeTab === tabs.notes} onClick={() => setActiveTab(tabs.notes)} />
+            <SidebarButton icon={Wifi} label="订阅" active={activeTab === tabs.subscriptions} onClick={() => setActiveTab(tabs.subscriptions)} />
+          </>}
         </nav>
 
         <div className="workspace-sidebar-footer">
+          <button
+            className={activeTab === tabs.publicNotes ? 'sidebar-settings-entry active' : 'sidebar-settings-entry'}
+            onClick={() => setActiveTab(tabs.publicNotes)}
+          >
+            <FileText size={19} />
+            <span>公开笔记</span>
+          </button>
           <button
             className={activeTab === tabs.profile ? 'sidebar-settings-entry active' : 'sidebar-settings-entry'}
             onClick={() => setActiveTab(tabs.profile)}
@@ -449,15 +494,8 @@ function WorkspacePage({ session, profile, initialTab, onProfileChange, onLogin,
         {activeTab !== tabs.dashboard && (
           <header className="workspace-heading compact-heading">
             <div>
-              <h1>{isContentTab ? '内容库' : activeTab === tabs.tasks ? '任务中心' : activeTab === tabs.subscriptions ? '订阅管理' : '设置'}</h1>
-              {activeTab !== tabs.profile && activeTab !== tabs.subscriptions && (
-                <p className="auth-state">
-                  {activeTab === tabs.tasks && `今天有 ${todayTasks.length} 项任务，任务列表、日历和四象限都集中在这里。`}
-                  {activeTab === tabs.notes && `共 ${notes.length} 篇笔记，记录想法并决定内容是私密还是公开。`}
-                  {activeTab === tabs.breakdown && '按故事、情绪和传播维度，拆解对标视频的脚本结构。'}
-                </p>
-              )}
-              {isContentTab && <ContentTabs activeTab={activeTab} onChange={setActiveTab} />}
+              <h1>{workspaceTitle}</h1>
+              {workspaceDescription && <p className="auth-state">{workspaceDescription}</p>}
             </div>
           </header>
         )}
@@ -468,6 +506,10 @@ function WorkspacePage({ session, profile, initialTab, onProfileChange, onLogin,
         {activeTab === tabs.dashboard && (
           <Dashboard notes={notes} tasks={tasks} onOpenTasks={() => setActiveTab(tabs.tasks)} onOpenNotes={() => setActiveTab(tabs.notes)} />
         )}
+        {activeTab === tabs.creator && <CreatorDashboard view="overview" />}
+        {activeTab === tabs.creatorProjects && <CreatorDashboard view="projects" />}
+        {activeTab === tabs.creatorMaterials && <CreatorDashboard view="materials" />}
+        {activeTab === tabs.creatorReview && <CreatorDashboard view="review" />}
         {activeTab === tabs.notes && (
           <NotesPanel session={session} notes={notes} setNotes={setNotes} setMessage={setMessage} />
         )}

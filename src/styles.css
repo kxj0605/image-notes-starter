@@ -5781,8 +5781,8 @@ button {
   min-height: 80px;
   align-items: center;
   grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-areas: 'navigation settings';
-  gap: 24px;
+  grid-template-areas: 'mode settings' 'navigation navigation';
+  gap: 12px 24px;
   margin: 0;
   border: 0;
   border-bottom: 1px solid var(--color-line-soft);
@@ -5792,13 +5792,43 @@ button {
   box-shadow: none;
 }
 
+.workspace-mode-switcher {
+  display: inline-flex;
+  gap: 3px;
+  grid-area: mode;
+  border-radius: 12px;
+  padding: 3px;
+  background: rgba(229, 236, 245, 0.82);
+}
+
+.workspace-mode-switcher button {
+  min-height: 38px;
+  border: 0;
+  border-radius: 9px;
+  padding: 0 12px;
+  color: var(--ws-text-muted);
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.workspace-mode-switcher button.active {
+  color: var(--color-info);
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: var(--shadow-sm);
+}
+
 .workspace-nav {
   display: flex;
   min-width: 0;
   align-items: center;
   gap: 8px;
   grid-area: navigation;
-  margin-top: 0;
+  margin-top: 2px;
+  padding-top: 10px;
+  border-top: 1px solid var(--color-line-soft);
   overflow-x: auto;
 }
 
@@ -5813,6 +5843,7 @@ button {
 
 .workspace-sidebar-footer {
   display: flex;
+  gap: 6px;
   align-self: center;
   grid-area: settings;
   margin: 0;
@@ -5838,11 +5869,25 @@ button {
   .workspace-content {
     padding-top: 28px;
   }
+
+  .workspace-sidebar {
+    grid-template-columns: 1fr auto;
+    grid-template-areas: 'mode settings' 'navigation navigation';
+    gap: 12px;
+  }
+
+  .workspace-nav {
+    padding-top: 8px;
+  }
 }
 
 @media (max-width: 560px) {
   .workspace-sidebar {
     min-height: 0;
+  }
+
+  .workspace-mode-switcher button {
+    padding: 0 10px;
   }
 
   .workspace-nav {
