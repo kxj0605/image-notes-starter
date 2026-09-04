@@ -12,6 +12,7 @@ export const tabs = {
   dashboard: 'dashboard',
   creator: 'creator',
   creatorProjects: 'creator-projects',
+  creatorCollection: 'creator-collection',
   creatorMaterials: 'creator-materials',
   creatorReview: 'creator-review',
   notes: 'notes',

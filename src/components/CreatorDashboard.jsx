@@ -1,5 +1,5 @@
 import React from 'react';
-import { BarChart3, Check, ChevronRight, Copy, Film, Flame, LibraryBig, Plus, Sparkles, Target, Trash2 } from 'lucide-react';
+import { BarChart3, CalendarDays, Check, ChevronRight, Copy, Film, Flame, LibraryBig, Plus, Sparkles, Target, Trash2 } from 'lucide-react';
 import './CreatorDashboard.css';
 
 const STORAGE_KEY = 'creator-growth-dashboard-v1';
@@ -64,6 +64,23 @@ function metricForDay(events, date) {
   return types.includes('video') ? 'video' : types.includes('storyboard') ? 'storyboard' : types.includes('script') ? 'script' : 'none';
 }
 
+function eventTypesForDay(events, date) {
+  return TYPES.filter((type) => events.some((event) => event.date === date && event.type === type.id));
+}
+
+function creativeStreak(events) {
+  const activeDays = new Set(events.filter((event) => TYPES.some((type) => type.id === event.type)).map((event) => event.date));
+  const cursor = new Date();
+  cursor.setHours(0, 0, 0, 0);
+  if (!activeDays.has(dateKey(cursor))) cursor.setDate(cursor.getDate() - 1);
+  let streak = 0;
+  while (activeDays.has(dateKey(cursor))) {
+    streak += 1;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  return streak;
+}
+
 function copyText(text) {
   return navigator.clipboard?.writeText(text);
 }
@@ -75,7 +92,7 @@ export function CreatorDashboard({ view = 'overview' }) {
   const [projectDraft, setProjectDraft] = React.useState('');
   const [promptDraft, setPromptDraft] = React.useState({ category: '未分类', tags: '', body: '', reference: '', projectId: '' });
   const [customMilestone, setCustomMilestone] = React.useState('');
-  const [goalPeriod, setGoalPeriod] = React.useState('week');
+  const [goalPeriod, setGoalPeriod] = React.useState('month');
 
   React.useEffect(() => { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }, [data]);
   React.useEffect(() => {
@@ -199,17 +216,24 @@ export function CreatorDashboard({ view = 'overview' }) {
   const showProjects = view === 'projects';
   const showMaterials = view === 'materials';
   const showReview = view === 'review';
+  const overviewMonth = new Date();
+  const overviewMonthLabel = `${overviewMonth.getFullYear()} 年 ${overviewMonth.getMonth() + 1} 月`;
 
   return (
     <section className="creator-dashboard" aria-label="AI 视频创作数据">
       {notice && <p className="creator-notice" role="status">{notice}</p>}
 
-      {showOverview && <section className="creator-page-stack">
-        <section className="creator-top-grid">
-          <section className="creator-goals" aria-label="创作概览"><GoalCard period={goalPeriod} counts={goalPeriod === 'week' ? weekly : goalPeriod === 'month' ? month : getCounts(data.events, 'quarter')} onPeriodChange={setGoalPeriod} /></section>
-          <article className="creator-card creator-chart-card"><div className="creator-card-head"><div><h3>本周推进</h3><p>由项目待办的完成动作自动记录。</p></div><BarChart3 size={19} /></div><WeeklyBars events={data.events} /></article>
-        </section>
-        <article className="creator-card creator-today"><h3>当前下一步</h3>{currentTasks.length ? <div><b>{currentTasks[0].title}</b><p>{currentTasks[0].project.title}</p><ChevronRight size={17} /></div> : <p>暂无项目待办，可先在“项目”中录入一支正在制作的视频。</p>}</article>
+      {showOverview && <section className="creator-overview-grid">
+        <article className="creator-card creator-month-card">
+          <div className="creator-month-head"><div><h3>{overviewMonthLabel}</h3></div><CalendarDays size={20} /></div>
+          <MonthlyCalendar events={data.events} />
+        </article>
+        <aside className="creator-overview-aside">
+          <GoalCard period={goalPeriod} counts={goalPeriod === 'week' ? weekly : goalPeriod === 'month' ? month : getCounts(data.events, 'quarter')} onPeriodChange={setGoalPeriod} />
+          <StreakCard streak={creativeStreak(data.events)} />
+          <StageDistribution counts={month} />
+          <article className="creator-card creator-today"><h3>当前下一步</h3>{currentTasks.length ? <div><b>{currentTasks[0].title}</b><p>{currentTasks[0].project.title}</p><ChevronRight size={17} /></div> : <p>今天从一件小事开始：推进一个项目待办，也算前进。</p>}</article>
+        </aside>
       </section>}
 
       {showProjects && <section className="creator-single-column"><article className="creator-card"><div className="creator-card-head"><div><h3>视频项目与待办</h3><p>勾选完成后，脚本、分镜、成片会自动进入创作记录。</p></div><Film size={19} /></div><form className="creator-add-row" onSubmit={addProject}><input value={projectDraft} onChange={(event) => setProjectDraft(event.target.value)} placeholder="录入一支正在制作的视频" maxLength="80" /><button type="submit"><Plus size={16} />录入</button></form><div className="creator-project-list">{data.projects.length ? data.projects.map((project) => <ProjectCard key={project.id} project={project} onToggle={toggleTask} onAddTask={addTask} onUpdateTask={updateTaskTitle} onRemoveTask={removeTask} onUpdateRecord={updateProjectRecord} onCopy={() => copyProjectMarkdown(project)} />) : <Empty copy="从一支正在做的视频开始。之后你只需完成待办，创作记录会自己更新。" />}</div></article></section>}
@@ -226,6 +250,32 @@ export function CreatorDashboard({ view = 'overview' }) {
 
 function GoalCard({ period, counts, onPeriodChange }) {
   return <article className="creator-goal-card"><div className="creator-goal-heading"><div><h3>创作成果</h3></div><div className="creator-goal-tabs" role="tablist" aria-label="目标周期">{[['week', '本周'], ['month', '本月'], ['quarter', '本季度']].map(([value, label]) => <button key={value} type="button" role="tab" aria-selected={period === value} className={period === value ? 'active' : ''} onClick={() => onPeriodChange(value)}>{label}</button>)}</div></div><div className="creator-goal-stat-grid">{TYPES.map((type) => <section className={`creator-goal-stat ${type.id}`} key={type.id}><span>{type.short}</span><b>{counts[type.id]}</b></section>)}</div></article>;
+}
+
+function MonthlyCalendar({ events }) {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = today.getMonth();
+  const firstDay = new Date(year, month, 1);
+  const lastDate = new Date(year, month + 1, 0).getDate();
+  const leadingBlanks = (firstDay.getDay() + 6) % 7;
+  const cells = [...Array.from({ length: leadingBlanks }, (_, index) => ({ key: `before-${index}` })), ...Array.from({ length: lastDate }, (_, index) => {
+    const day = index + 1;
+    const date = new Date(year, month, day);
+    const key = dateKey(date);
+    return { key, day, types: eventTypesForDay(events, key), isToday: key === dateKey(today) };
+  })];
+  const trailingBlanks = (7 - cells.length % 7) % 7;
+  return <div className="creator-month-calendar"><div className="creator-month-weekdays" aria-hidden="true">{['一', '二', '三', '四', '五', '六', '日'].map((day) => <span key={day}>{day}</span>)}</div><div className="creator-month-days">{[...cells, ...Array.from({ length: trailingBlanks }, (_, index) => ({ key: `after-${index}` }))].map((cell) => !cell.day ? <span className="creator-month-day blank" key={cell.key} /> : <div className={`creator-month-day${cell.isToday ? ' today' : ''}${cell.types.length ? ' active' : ''}`} key={cell.key} title={`${formatDay(cell.key)}${cell.types.length ? ` · ${cell.types.map((type) => type.label).join('、')}` : ' · 暂无创作记录'}`}><span>{cell.day}</span><div className="creator-month-events">{cell.types.map((type) => <i key={type.id} className={type.id} aria-label={type.label} />)}</div></div>)}</div><div className="creator-month-legend">{TYPES.map((type) => <span key={type.id}><i className={type.id} />{type.short}</span>)}</div></div>;
+}
+
+function StreakCard({ streak }) {
+  return <article className="creator-card creator-streak-card"><div><h3>连续创作</h3><b>{streak}<small> 天</small></b></div><div className="creator-streak-copy">{streak ? '每一步都会累积成作品。' : '今天完成一个阶段，就从 1 天开始。'}</div></article>;
+}
+
+function StageDistribution({ counts }) {
+  const total = TYPES.reduce((sum, type) => sum + counts[type.id], 0);
+  return <article className="creator-card creator-stage-card"><div className="creator-card-head"><div><h3>本月阶段分布</h3></div><BarChart3 size={19} /></div><div className="creator-stage-list">{TYPES.map((type) => { const value = counts[type.id]; const width = total ? Math.max(8, value / total * 100) : 0; return <div key={type.id}><span><i className={type.id} />{type.short}</span><div className="creator-stage-track"><i className={type.id} style={{ width: `${width}%` }} /></div><b>{value}</b></div>; })}</div></article>;
 }
 
 function WeeklyBars({ events }) {
